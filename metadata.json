@@ -1,0 +1,6 @@
+{
+  "name": "منظم حياتي",
+  "description": "تطبيق شامل لإدارة حياتك: الملاحظات، التذكيرات، الديون، صندوق التحويش، الروابط، الصور والفواتير، الإحصائيات والقفل الأمني.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
