@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.ui.MainViewModel
+import kotlinx.coroutines.delay
 
 data class SurahInfo(
     val number: Int,
@@ -754,230 +755,295 @@ fun QuranScreen(viewModel: MainViewModel) {
         }
     }
 
-    // FULL SCREEN EXPANDED MUSHAF DIALOG (كامل بحجم الشاشة)
+    // FULL SCREEN EXPANDED MUSHAF DIALOG (صفحة كاملة مع أزرار عائمة تحتفي تلقائياً)
     if (isFullScreenMode) {
         val currentSurahObj = selectedSurah ?: QURAN_SURAHS.find { it.startPage <= currentPage && (QURAN_SURAHS.getOrNull(QURAN_SURAHS.indexOf(it) + 1)?.startPage ?: 605) > currentPage } ?: QURAN_SURAHS.first()
         val juzNumber = ((currentPage - 1) / 20) + 1
 
+        var showOverlayControls by remember { mutableStateOf(true) }
+
+        // Auto-hide controls after 3 seconds
+        LaunchedEffect(showOverlayControls, currentPage) {
+            if (showOverlayControls) {
+                delay(3000L)
+                showOverlayControls = false
+            }
+        }
+
         Dialog(
             onDismissRequest = { isFullScreenMode = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = Color(0xFFFFFDF0)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFFFFDF0))
+                    .clickable { showOverlayControls = !showOverlayControls }
             ) {
-                Column(
+                // 1. Full Screen Quran Canvas (Takes 100% of Screen)
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(8.dp)
+                        .then(pageSwipeModifier)
+                        .padding(horizontal = 8.dp, vertical = 8.dp)
+                        .background(Color(0xFFFFFDF0), RoundedCornerShape(12.dp))
+                        .border(3.5.dp, Color(0xFFC9A227), RoundedCornerShape(12.dp))
+                        .padding(4.dp)
                 ) {
-                    // Fullscreen Floating Control Header
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Button(
-                            onClick = { isFullScreenMode = false },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB23B23)),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Icon(Icons.Default.FullscreenExit, contentDescription = "إغلاق", modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("إغلاق ملء الشاشة ✕", fontSize = 12.sp)
-                        }
-
-                        Text(
-                            text = "سُورَةُ ${currentSurahObj.name} • الجُزْءُ ${getJuzOrdinal(juzNumber)}",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1B4332)
-                        )
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { if (fontSizeSp > 18f) fontSizeSp -= 2f }) {
-                                Text("A-", fontWeight = FontWeight.Bold, color = Color(0xFF1B4332))
-                            }
-                            IconButton(onClick = { if (fontSizeSp < 42f) fontSizeSp += 2f }) {
-                                Text("A+", fontWeight = FontWeight.Bold, color = Color(0xFF1B4332))
-                            }
-                        }
-                    }
-
-                    // Authentic Full Screen Madani Mushaf Canvas with Swipe Gesture
                     Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .then(pageSwipeModifier)
-                            .background(Color(0xFFFFFDF0), RoundedCornerShape(12.dp))
-                            .border(4.dp, Color(0xFFC9A227), RoundedCornerShape(12.dp))
-                            .padding(8.dp)
+                            .fillMaxSize()
+                            .border(1.5.dp, Color(0xFF1B4332), RoundedCornerShape(10.dp))
+                            .border(2.5.dp, Color(0xFFE5C158), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .border(1.5.dp, Color(0xFF1B4332), RoundedCornerShape(10.dp))
-                                .border(2.5.dp, Color(0xFFE5C158), RoundedCornerShape(10.dp))
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                            // Top Header Line inside Mushaf Frame
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "الجُزْءُ ${getJuzOrdinal(juzNumber)}",
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFB23B23)
-                                    )
-                                    Text(
-                                        text = "سُورَةُ ${currentSurahObj.name}",
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFB23B23)
-                                    )
-                                }
+                                Text(
+                                    text = "الجُزْءُ ${getJuzOrdinal(juzNumber)}",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFB23B23)
+                                )
+                                Text(
+                                    text = "سُورَةُ ${currentSurahObj.name}",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFB23B23)
+                                )
+                            }
 
-                                HorizontalDivider(color = Color(0xFFC9A227), thickness = 1.5.dp)
-                                Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(color = Color(0xFFC9A227), thickness = 1.5.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                                val currentVerses = getVersesForPage(currentSurahObj, currentPage)
+                            val currentVerses = getVersesForPage(currentSurahObj, currentPage)
 
-                                LazyColumn(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                                ) {
-                                    if (currentPage == currentSurahObj.startPage && currentSurahObj.number != 9) {
-                                        item {
-                                            Surface(
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                if (currentPage == currentSurahObj.startPage && currentSurahObj.number != 9) {
+                                    item {
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 8.dp),
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = Color(0xFFFAF0CA),
+                                            border = BorderStroke(2.dp, Color(0xFFC9A227))
+                                        ) {
+                                            Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .padding(vertical = 10.dp),
-                                                shape = RoundedCornerShape(10.dp),
-                                                color = Color(0xFFFAF0CA),
-                                                border = BorderStroke(2.dp, Color(0xFFC9A227))
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(vertical = 10.dp),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Text(
-                                                        text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
-                                                        fontSize = (fontSizeSp + 4).sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = Color(0xFF1B4332),
-                                                        textAlign = TextAlign.Center
-                                                    )
-                                                }
+                                                Text(
+                                                    text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+                                                    fontSize = (fontSizeSp + 4).sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF1B4332),
+                                                    textAlign = TextAlign.Center
+                                                )
                                             }
                                         }
                                     }
-
-                                    items(currentVerses) { verse ->
-                                        Text(
-                                            text = verse,
-                                            fontSize = fontSizeSp.sp,
-                                            lineHeight = (fontSizeSp * 1.9f).sp,
-                                            fontWeight = FontWeight.Normal,
-                                            color = Color(0xFF111827),
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    }
-
-                                    item {
-                                        Spacer(modifier = Modifier.height(14.dp))
-                                        Text(
-                                            text = "﴿ صَدَقَ اللَّهُ الْعَظِيمُ ﴾",
-                                            fontSize = fontSizeSp.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF2D6A4F)
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                    }
                                 }
 
-                                Spacer(modifier = Modifier.height(6.dp))
-                                HorizontalDivider(color = Color(0xFFC9A227), thickness = 1.5.dp)
-
-                                // Bottom Centered Page Badge inside Fullscreen Frame
-                                Box(
-                                    modifier = Modifier
-                                        .padding(top = 6.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFFFAF0CA))
-                                        .border(1.5.dp, Color(0xFFC9A227), RoundedCornerShape(8.dp))
-                                        .padding(horizontal = 24.dp, vertical = 4.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
+                                items(currentVerses) { verse ->
                                     Text(
-                                        text = toArabicDigits(currentPage),
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF1B4332)
+                                        text = verse,
+                                        fontSize = fontSizeSp.sp,
+                                        lineHeight = (fontSizeSp * 1.9f).sp,
+                                        fontWeight = FontWeight.Normal,
+                                        color = Color(0xFF111827),
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
                                     )
+                                }
+
+                                item {
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Text(
+                                        text = "﴿ صَدَقَ اللَّهُ الْعَظِيمُ ﴾",
+                                        fontSize = fontSizeSp.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2D6A4F)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            HorizontalDivider(color = Color(0xFFC9A227), thickness = 1.5.dp)
+
+                            // Bottom Centered Page Badge inside Fullscreen Frame
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 4.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFFFAF0CA))
+                                    .border(1.5.dp, Color(0xFFC9A227), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 20.dp, vertical = 2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = toArabicDigits(currentPage),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1B4332)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 2. Auto-hiding Floating Top Controls Bar
+                AnimatedVisibility(
+                    visible = showOverlayControls,
+                    enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
+                    exit = fadeOut() + slideOutVertically(targetOffsetY = { -it }),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = Color(0xFF1B4332).copy(alpha = 0.92f),
+                        border = BorderStroke(1.5.dp, Color(0xFFC9A227)),
+                        shadowElevation = 8.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = { isFullScreenMode = false },
+                                shape = CircleShape,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB23B23)),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("إغلاق ✕", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+
+                            Text(
+                                text = "سُورَةُ ${currentSurahObj.name}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFAF0CA),
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.Center
+                            )
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { if (fontSizeSp > 18f) fontSizeSp -= 2f },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Text("A-", fontWeight = FontWeight.Bold, color = Color(0xFFFAF0CA), fontSize = 14.sp)
+                                }
+                                IconButton(
+                                    onClick = { if (fontSizeSp < 42f) fontSizeSp += 2f },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Text("A+", fontWeight = FontWeight.Bold, color = Color(0xFFFAF0CA), fontSize = 14.sp)
                                 }
                             }
                         }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Fullscreen Bottom Navigation Bar
+                // 3. Auto-hiding Floating Bottom Navigation Controls Bar
+                AnimatedVisibility(
+                    visible = showOverlayControls,
+                    enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                    exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 20.dp, start = 16.dp, end = 16.dp)
+                ) {
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surface
+                        shape = RoundedCornerShape(28.dp),
+                        color = Color(0xFF1B4332).copy(alpha = 0.94f),
+                        border = BorderStroke(2.dp, Color(0xFFC9A227)),
+                        shadowElevation = 10.dp
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedButton(
-                                onClick = { if (currentPage > 1) currentPage-- },
+                            Button(
+                                onClick = { if (currentPage > 1) { currentPage--; showOverlayControls = true } },
                                 enabled = currentPage > 1,
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFC9A227),
+                                    contentColor = Color(0xFF1B4332),
+                                    disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+                                ),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("الصفحة السابقة")
+                                Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("السابقة", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                IconButton(
+                                    onClick = { saveLastPosition(currentPage, currentSurahObj.name) },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Bookmark,
+                                        contentDescription = "حفظ الموضع",
+                                        tint = Color(0xFFFAF0CA),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Text(
+                                    text = "صفحة ${toArabicDigits(currentPage)} من ٦٠٤",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
                             }
 
                             Button(
-                                onClick = { saveLastPosition(currentPage, currentSurahObj.name) },
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Text("حفظ الموضع 🔖")
-                            }
-
-                            Button(
-                                onClick = { if (currentPage < 604) currentPage++ },
+                                onClick = { if (currentPage < 604) { currentPage++; showOverlayControls = true } },
                                 enabled = currentPage < 604,
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFC9A227),
+                                    contentColor = Color(0xFF1B4332),
+                                    disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+                                ),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Text("الصفحة التالية")
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Text("التالية", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                             }
                         }
                     }

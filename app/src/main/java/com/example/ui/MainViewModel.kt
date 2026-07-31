@@ -113,6 +113,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _currentUsername.value = "km512"
                 _currentUserRole.value = "ADMIN"
                 _isUserLoggedIn.value = true
+
+                // Auto-restore cloud data on login
+                restoreUserCloudData("km512")
                 withContext(Dispatchers.Main) { onSuccess() }
                 return@launch
             }
@@ -124,11 +127,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _currentUsername.value = existingUser.username
                 _currentUserRole.value = existingUser.role
                 _isUserLoggedIn.value = true
+
+                // Auto-restore cloud data on login
+                restoreUserCloudData(existingUser.username)
                 withContext(Dispatchers.Main) { onSuccess() }
             } else {
                 withContext(Dispatchers.Main) { onError("اسم المستخدم أو كلمة السر غير صحيحة") }
             }
         }
+    }
+
+    private suspend fun restoreUserCloudData(username: String) {
+        try {
+            // First try default sync pin
+            val resDefault = firebaseSyncManager.downloadFromFirebase()
+            if (resDefault.isSuccess && !resDefault.getOrNull().isNullAndBlank()) {
+                backupManager.importFromJson(resDefault.getOrNull()!!)
+            } else {
+                // Try username key
+                val resUsername = firebaseSyncManager.downloadFromFirebase(username.lowercase())
+                if (resUsername.isSuccess && !resUsername.getOrNull().isNullAndBlank()) {
+                    backupManager.importFromJson(resUsername.getOrNull()!!)
+                }
+            }
+            lastSyncTimeState.value = firebaseSyncManager.getLastSyncTime()
+            triggerAutoSync()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun String?.isNullAndBlank(): Boolean {
+        return this.isNullOrBlank() || this == "null" || this == "{}"
     }
 
     fun registerUser(
@@ -384,6 +414,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 try {
                     val json = backupManager.exportToJson()
                     firebaseSyncManager.uploadToFirebase(json)
+                    val username = authManager.getCurrentUsername()
+                    if (username.isNotBlank()) {
+                        firebaseSyncManager.uploadToFirebase(json, customPin = username.lowercase())
+                    }
                     lastSyncTimeState.value = firebaseSyncManager.getLastSyncTime()
                 } catch (e: Exception) {
                     e.printStackTrace()
