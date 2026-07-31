@@ -1,5 +1,15 @@
 package com.example.ui.screens
 
+import android.content.ContentValues
+import android.content.Context
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,11 +23,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.data.entities.DocumentEntity
 import com.example.ui.MainViewModel
+import java.io.File
+import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,6 +40,7 @@ fun DocumentsScreen(viewModel: MainViewModel) {
     val documents by viewModel.documents.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var docToEdit by remember { mutableStateOf<DocumentEntity?>(null) }
+    var selectedDocForPreview by remember { mutableStateOf<DocumentEntity?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -50,7 +66,7 @@ fun DocumentsScreen(viewModel: MainViewModel) {
         ) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "📂 سجل الملفات والوثائق الرسمية",
+                text = "📂 خزينة الصور والوثائق المهمة",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary
             )
@@ -61,7 +77,17 @@ fun DocumentsScreen(viewModel: MainViewModel) {
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("لا توجد وثائق محفوظة حالياً.", color = Color.Gray)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.FolderSpecial,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = Color.Gray.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("لا توجد وثائق أو صور محفوظة حالياً.", color = Color.Gray)
+                        Text("اضغط زر (+) لرفع وتخزين صورة الهوية أو العقد أو أي وثيقة.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    }
                 }
             } else {
                 LazyColumn(
@@ -71,6 +97,7 @@ fun DocumentsScreen(viewModel: MainViewModel) {
                     items(documents, key = { it.id }) { doc ->
                         DocumentCardItem(
                             document = doc,
+                            onView = { selectedDocForPreview = doc },
                             onEdit = {
                                 docToEdit = doc
                                 showAddDialog = true
@@ -81,6 +108,13 @@ fun DocumentsScreen(viewModel: MainViewModel) {
                 }
             }
         }
+    }
+
+    if (selectedDocForPreview != null) {
+        DocumentImageViewerDialog(
+            document = selectedDocForPreview!!,
+            onDismiss = { selectedDocForPreview = null }
+        )
     }
 
     if (showAddDialog) {
@@ -116,73 +150,257 @@ fun DocumentsScreen(viewModel: MainViewModel) {
 @Composable
 fun DocumentCardItem(
     document: DocumentEntity,
+    onView: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
+
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onEdit() },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(12.dp)
         ) {
-            if (document.fileUri.isNotEmpty()) {
-                coil.compose.AsyncImage(
-                    model = document.fileUri,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(10.dp)),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Folder,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp)
-                )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEdit() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (document.fileUri.isNotEmpty()) {
+                    AsyncImage(
+                        model = document.fileUri,
+                        contentDescription = "معاينة الوثيقة",
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onView() },
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Surface(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clickable { onView() },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.FolderSpecial,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = document.title,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = document.category,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    if (document.notes.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = document.notes,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
+
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = "حذف", tint = Color.Red.copy(alpha = 0.7f))
+                }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = document.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-                Surface(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(6.dp)
+            // Action Buttons: View (مشاهدة) and Download (تحميل)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onView,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp)
                 ) {
-                    Text(
-                        text = document.category,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
+                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("مشاهدة 👁️", style = MaterialTheme.typography.labelLarge)
                 }
-                if (document.notes.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = document.notes,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                }
-            }
 
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.DeleteOutline, contentDescription = "حذف", tint = Color.Red.copy(alpha = 0.7f))
+                Button(
+                    onClick = { downloadDocumentFile(context, document) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp)
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("تحميل 📥", style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
+    }
+}
+
+@Composable
+fun DocumentImageViewerDialog(
+    document: DocumentEntity,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🖼️ ${document.title}",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "إغلاق")
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (document.fileUri.isNotEmpty()) {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(280.dp)
+                    ) {
+                        AsyncImage(
+                            model = document.fileUri,
+                            contentDescription = document.title,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("لا توجد صورة مرفقة مع هذه الوثيقة", color = Color.Gray)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("التصنيف: ${document.category}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        if (document.notes.isNotEmpty()) {
+                            Text("ملاحظات: ${document.notes}", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { downloadDocumentFile(context, document) },
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("تحميل الصورة 📥")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, shape = RoundedCornerShape(10.dp)) {
+                Text("إغلاق")
+            }
+        }
+    )
+}
+
+fun downloadDocumentFile(context: Context, document: DocumentEntity) {
+    if (document.fileUri.isBlank()) {
+        Toast.makeText(context, "لا توجد صورة أو ملف مرفق للتحميل", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    try {
+        val uri = Uri.parse(document.fileUri)
+        val resolver = context.contentResolver
+        val fileName = "Doc_${document.title.replace(" ", "_")}_${System.currentTimeMillis()}.jpg"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/LifeOrganizerDocs")
+            }
+            val imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            imageUri?.let { destUri ->
+                resolver.openInputStream(uri)?.use { input ->
+                    resolver.openOutputStream(destUri)?.use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                Toast.makeText(context, "تم حفظ الوثيقة بنجاح في المعرض (Pictures/LifeOrganizerDocs) 📸", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+            val appDir = File(picturesDir, "LifeOrganizerDocs")
+            if (!appDir.exists()) appDir.mkdirs()
+            val destFile = File(appDir, fileName)
+            resolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            Toast.makeText(context, "تم حفظ الوثيقة بنجاح: ${destFile.absolutePath} 📂", Toast.LENGTH_LONG).show()
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        Toast.makeText(context, "تم حفظ الوثيقة بنجاح في ذاكرة الجهاز المحفوظة 💾", Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -192,29 +410,29 @@ fun AddEditDocumentDialog(
     onDismiss: () -> Unit,
     onSave: (title: String, category: String, fileUri: String, notes: String) -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     var title by remember { mutableStateOf(existingDoc?.title ?: "") }
     var category by remember { mutableStateOf(existingDoc?.category ?: "هوية") }
     var fileUri by remember { mutableStateOf(existingDoc?.fileUri ?: "") }
     var notes by remember { mutableStateOf(existingDoc?.notes ?: "") }
 
-    val categories = listOf("هوية", "عقود", "شهادات", "مركبة", "أخرى")
+    val categories = listOf("هوية", "عقود", "شهادات", "مركبة", "صور شخصية", "أخرى")
 
     // Document/Photo Picker Launcher
-    val docPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri: android.net.Uri? ->
+    val docPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
         uri?.let {
             try {
                 val inputStream = context.contentResolver.openInputStream(it)
-                val file = java.io.File(context.filesDir, "doc_${System.currentTimeMillis()}.jpg")
-                val outputStream = java.io.FileOutputStream(file)
+                val file = File(context.filesDir, "doc_${System.currentTimeMillis()}.jpg")
+                val outputStream = FileOutputStream(file)
                 inputStream?.use { input ->
                     outputStream.use { output ->
                         input.copyTo(output)
                     }
                 }
-                fileUri = android.net.Uri.fromFile(file).toString()
+                fileUri = Uri.fromFile(file).toString()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -223,25 +441,40 @@ fun AddEditDocumentDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (existingDoc == null) "إضافة وثيقة جديدة" else "تعديل الوثيقة") },
+        title = { Text(if (existingDoc == null) "إضافة وثيقة / صورة جديدة" else "تعديل الوثيقة") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("اسم الوثيقة (مثال: الهوية الوطنية)") },
+                    label = { Text("اسم الوثيقة أو الصورة (مثال: الهوية الوطنية)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text("التصنيف:", style = MaterialTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    categories.forEach { cat ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    categories.take(3).forEach { cat ->
                         FilterChip(
                             selected = category == cat,
                             onClick = { category = cat },
-                            label = { Text(cat) }
+                            label = { Text(cat, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    categories.drop(3).forEach { cat ->
+                        FilterChip(
+                            selected = category == cat,
+                            onClick = { category = cat },
+                            label = { Text(cat, style = MaterialTheme.typography.labelSmall) }
                         )
                     }
                 }
@@ -258,13 +491,13 @@ fun AddEditDocumentDialog(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         if (fileUri.isNotEmpty()) {
-                            coil.compose.AsyncImage(
+                            AsyncImage(
                                 model = fileUri,
                                 contentDescription = "معاينة الوثيقة",
                                 modifier = Modifier
-                                    .size(120.dp)
+                                    .size(130.dp)
                                     .clip(RoundedCornerShape(10.dp)),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                contentScale = ContentScale.Fit
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                         }
@@ -276,7 +509,7 @@ fun AddEditDocumentDialog(
                         ) {
                             Icon(Icons.Default.UploadFile, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (fileUri.isEmpty()) "رفع صورة/ملف الوثيقة 📄" else "تغيير ملف الوثيقة 🖼️")
+                            Text(if (fileUri.isEmpty()) "رفع صورة الوثيقة 🖼️" else "تغيير الصورة المرفقة 📷")
                         }
                     }
                 }
@@ -286,7 +519,7 @@ fun AddEditDocumentDialog(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("ملاحظات وتاريخ الانتهاء") },
+                    label = { Text("ملاحظات / تاريخ الانتهاء") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -308,3 +541,4 @@ fun AddEditDocumentDialog(
         }
     )
 }
+

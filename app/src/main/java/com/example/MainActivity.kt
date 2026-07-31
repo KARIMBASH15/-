@@ -132,11 +132,12 @@ fun MainAppContent(viewModel: MainViewModel) {
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
+            ModalDrawerSheet(
+                modifier = Modifier.width(300.dp)
+            ) {
                 Column(
                     modifier = Modifier
-                        .width(280.dp)
-                        .fillMaxHeight()
+                        .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp)
                 ) {
