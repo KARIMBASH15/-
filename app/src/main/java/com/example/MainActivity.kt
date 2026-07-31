@@ -8,6 +8,8 @@ import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -135,6 +137,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                     modifier = Modifier
                         .width(280.dp)
                         .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
                         .padding(16.dp)
                 ) {
                     val currentUsername by viewModel.currentUsername.collectAsState()

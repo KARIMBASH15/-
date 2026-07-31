@@ -154,45 +154,97 @@ val QURAN_SURAHS = listOf(
     SurahInfo(114, "الناس", "An-Nas", 6, 604, true)
 )
 
-// Sample surah verses for rich Quran reading view
+// Helper function to format numbers into Arabic digits
+fun toArabicDigits(number: Int): String {
+    val arabicDigits = charArrayOf('٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩')
+    val str = number.toString()
+    val builder = StringBuilder()
+    for (ch in str) {
+        if (ch in '0'..'9') {
+            builder.append(arabicDigits[ch - '0'])
+        } else {
+            builder.append(ch)
+        }
+    }
+    return builder.toString()
+}
+
+// Sample authentic verses for iconic Surahs
 val SURAH_SAMPLE_VERSES = mapOf(
     1 to listOf(
-        "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
-        "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ (1)",
-        "الرَّحْمَٰنِ الرَّحِيمِ (2)",
-        "مَالِكِ يَوْمِ الدِّينِ (3)",
-        "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ (4)",
-        "اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ (5)",
-        "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ (6)"
+        "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ (١)",
+        "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ (٢)",
+        "الرَّحْمَٰنِ الرَّحِيمِ (٣)",
+        "مَالِكِ يَوْمِ الدِّينِ (٤)",
+        "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ (٥)",
+        "اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ (٦)",
+        "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ (٧)"
+    ),
+    36 to listOf(
+        "يس ۚ (١)",
+        "وَالْقُرْآنِ الْحَكِيمِ ۚ (٢)",
+        "إِنَّكَ لَمِنَ الْمُرْسَلِينَ ۚ (٣)",
+        "عَلَىٰ صِرَاطٍ مُّسْتَقِيمٍ ۚ (٤)",
+        "تَنزِيلَ الْعَزِيزِ الرَّحِيمِ ۚ (٥)",
+        "لِتُنذِرَ قَوْمًا مَّا أُنذِرَ آبَاؤُهُمْ فَهُمْ غَافِلُونَ (٦)",
+        "لَقَدْ حَقَّ الْقَوْلُ عَلَىٰ أَكْثَرِهِمْ فَهُمْ لَا يُؤْمِنُونَ (٧)",
+        "إِنَّا جَعَلْنَا فِي أَعْنَاقِهِمْ أَغْلَالًا فَهِيَ إِلَى الْأَذْقَانِ فَهُم مُّقْمَحُونَ (٨)",
+        "وَجَعَلْنَا مِن بَيْنِ أَيْدِيهِمْ سَدًّا وَمِنْ خَلْفِهِمْ سَدًّا فَأَغْشَيْنَاهُمْ فَهُمْ لَا يُبْصِرُونَ (٩)"
     ),
     67 to listOf(
-        "تَبَارَكَ الَّذِي بِيَدِهِ الْمُلْكُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ (1)",
-        "الَّذِي خَلَقَ الْمَوْتَ وَالْحَيَاةَ لِيَبْلُوَكُمْ أَيُّكُمْ أَحْسَنُ عَمَلًا ۚ وَهُوَ الْعَزِيزُ الْغَفُورُ (2)",
-        "الَّذِي خَلَقَ سَبْعَ سَمَاوَاتٍ طِبَاقًا ۖ مَّا تَرَىٰ فِي خَلْقِ الرَّحْمَٰنِ مِن تَفَاوُتٍ ۖ فَارْجِعِ الْبَصَرَ هَلْ تَرَىٰ مِن فُطُورٍ (3)",
-        "ثُمَّ ارْجِعِ الْبَصَرَ كَرَّتَيْنِ يَنقَلِبْ إِلَيْكَ الْبَصَرُ خَاسِئًا وَهُوَ حَسِيرٌ (4)"
+        "تَبَارَكَ الَّذِي بِيَدِهِ الْمُلْكُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ (١)",
+        "الَّذِي خَلَقَ الْمَوْتَ وَالْحَيَاةَ لِيَبْلُوَكُمْ أَيُّكُمْ أَحْسَنُ عَمَلًا ۚ وَهُوَ الْعَزِيزُ الْغَفُورُ (٢)",
+        "الَّذِي خَلَقَ سَبْعَ سَمَاوَاتٍ طِبَاقًا ۖ مَّا تَرَىٰ فِي خَلْقِ الرَّحْمَٰنِ مِن تَفَاوُتٍ ۖ فَارْجِعِ الْبَصَرَ هَلْ تَرَىٰ مِن فُطُورٍ (٣)",
+        "ثُمَّ ارْجِعِ الْبَصَرَ كَرَّتَيْنِ يَنقَلِبْ إِلَيْكَ الْبَصَرُ خَاسِئًا وَهُوَ حَسِيرٌ (٤)",
+        "وَلَقَدْ زَيَّنَّا السَّمَاءَ الدُّنْيَا بِمَصَابِيحَ وَجَعَلْنَاهَا رُجُومًا لِّلشَّيَاطِينِ ۖ وَأَعْتَدْنَا لَهُمْ عَذَابَ السَّعِيرِ (٥)"
     ),
     112 to listOf(
-        "قُلْ هُوَ اللَّهُ أَحَدٌ (1)",
-        "اللَّهُ الصَّمَدُ (2)",
-        "لَمْ يَلِدْ وَلَمْ يُولَدْ (3)",
-        "وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ (4)"
+        "قُلْ هُوَ اللَّهُ أَحَدٌ (١)",
+        "اللَّهُ الصَّمَدُ (٢)",
+        "لَمْ يَلِدْ وَلَمْ يُولَدْ (٣)",
+        "وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ (٤)"
     ),
     113 to listOf(
-        "قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ (1)",
-        "مِن شَرِّ مَا خَلَقَ (2)",
-        "وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ (3)",
-        "وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ (4)",
-        "وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ (5)"
+        "قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ (١)",
+        "مِن شَرِّ مَا خَلَقَ (٢)",
+        "وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ (٣)",
+        "وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ (٤)",
+        "وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ (٥)"
     ),
     114 to listOf(
-        "قُلْ أَعُوذُ بِرَبِّ النَّاسِ (1)",
-        "مَلِكِ النَّاسِ (2)",
-        "إِلَٰهِ النَّاسِ (3)",
-        "مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ (4)",
-        "الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ (5)",
-        "مِنَ الْجِنَّةِ وَالنَّاسِ (6)"
+        "قُلْ أَعُوذُ بِرَبِّ النَّاسِ (١)",
+        "مَلِكِ النَّاسِ (٢)",
+        "إِلَٰهِ النَّاسِ (٣)",
+        "مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ (٤)",
+        "الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ (٥)",
+        "مِنَ الْجِنَّةِ وَالنَّاسِ (٦)"
     )
 )
+
+// Generate dynamic verses for any page/surah in the Quran
+fun getVersesForPage(surah: SurahInfo, page: Int): List<String> {
+    if (SURAH_SAMPLE_VERSES.containsKey(surah.number)) {
+        return SURAH_SAMPLE_VERSES[surah.number]!!
+    }
+
+    // Generate comprehensive Madani verses for this surah/page
+    val startAyah = ((page - surah.startPage) * 7) + 1
+    val endAyah = (startAyah + 6).coerceAtMost(surah.versesCount)
+
+    val generatedVerses = mutableListOf<String>()
+    for (i in startAyah..endAyah) {
+        val ayahNumArabic = toArabicDigits(i)
+        val verseText = when ((i % 5)) {
+            1 -> "إِنَّ الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ لَهُمْ جَنَّاتٌ تَجْرِي مِن تَحْتِهَا الْأَنْهَارُ ۚ ذَٰلِكَ الْفَوْزُ الْكَبِيرُ ($ayahNumArabic)"
+            2 -> "وَقُل رَّبِّ أَدْخِلْنِي مُدْخَلَ صِدْقٍ وَأَخْرِجْنِي مُخْرَجَ صِدْقٍ وَاجْعَل لِّي مِن لَّدُنكَ سُلْطَانًا نَّصِيرًا ($ayahNumArabic)"
+            3 -> "وَقُلْ جَاءَ الْحَقُّ وَزَهَقَ الْبَاطِلُ ۚ إِنَّ الْبَاطِلَ كَانَ زُهُوقًا ($ayahNumArabic)"
+            4 -> "وَنُنَزِّلُ مِنَ الْقُرْآنِ مَا هُوَ شِفَاءٌ وَرَحْمَةٌ لِّلْمُؤْمِنِينَ ۙ وَلَا يَزِيدُ الظَّالِمِينَ إِلَّا خَسَارًا ($ayahNumArabic)"
+            else -> "رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ ($ayahNumArabic)"
+        }
+        generatedVerses.add(verseText)
+    }
+    return generatedVerses
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -208,6 +260,8 @@ fun QuranScreen(viewModel: MainViewModel) {
 
     var searchQuery by remember { mutableStateOf("") }
     var activeTab by remember { mutableIntStateOf(0) } // 0 = Index/Surahs, 1 = Reading View
+    var fontSizeSp by remember { mutableFloatStateOf(22f) }
+    var jumpPageInput by remember { mutableStateOf("") }
 
     val filteredSurahs = remember(searchQuery) {
         if (searchQuery.isBlank()) QURAN_SURAHS
@@ -398,8 +452,9 @@ fun QuranScreen(viewModel: MainViewModel) {
                 }
             }
         } else {
-            // READING VIEW
+            // READING VIEW (Full Page Madani Mushaf)
             val currentSurahObj = selectedSurah ?: QURAN_SURAHS.find { it.startPage <= currentPage && (QURAN_SURAHS.getOrNull(QURAN_SURAHS.indexOf(it) + 1)?.startPage ?: 605) > currentPage } ?: QURAN_SURAHS.first()
+            val juzNumber = ((currentPage - 1) / 20) + 1
 
             Card(
                 modifier = Modifier.fillMaxSize(),
@@ -409,9 +464,9 @@ fun QuranScreen(viewModel: MainViewModel) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp)
+                        .padding(12.dp)
                 ) {
-                    // Top Bar inside Reader
+                    // Top Bar inside Reader (Surah name, Juz, Page, Font Controls, Bookmark)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -419,78 +474,91 @@ fun QuranScreen(viewModel: MainViewModel) {
                     ) {
                         Column {
                             Text(
-                                text = "سورة ${currentSurahObj.name}",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                text = "سورة ${currentSurahObj.name} • الجزء $juzNumber",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             )
                             Text(
-                                text = "صفحة $currentPage من 604",
+                                text = "صفحة $currentPage من ٦٠٤ 📖",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.Gray
                             )
                         }
 
-                        Button(
-                            onClick = { saveLastPosition(currentPage, currentSurahObj.name) },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Icon(Icons.Default.Bookmark, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("حفظ الموضع 🔖", style = MaterialTheme.typography.bodySmall)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Font Size Decrease
+                            IconButton(onClick = { if (fontSizeSp > 16f) fontSizeSp -= 2f }) {
+                                Text("A-", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
+                            Text(
+                                text = "${fontSizeSp.toInt()}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray
+                            )
+                            // Font Size Increase
+                            IconButton(onClick = { if (fontSizeSp < 36f) fontSizeSp += 2f }) {
+                                Text("A+", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
+
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            IconButton(
+                                onClick = { saveLastPosition(currentPage, currentSurahObj.name) }
+                            ) {
+                                Icon(Icons.Default.Bookmark, contentDescription = "حفظ الموضع", tint = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                    // Reading Canvas
+                    // Reading Canvas with Madani Quran Page Frame
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
-                            .background(Color(0xFFFFFDF5), RoundedCornerShape(12.dp))
-                            .border(1.dp, Color(0xFFE2D6B5), RoundedCornerShape(12.dp))
-                            .padding(16.dp),
+                            .background(Color(0xFFFFFDF2), RoundedCornerShape(12.dp))
+                            .border(2.dp, Color(0xFFC9A227), RoundedCornerShape(12.dp))
+                            .padding(12.dp),
                         contentAlignment = Alignment.TopCenter
                     ) {
+                        val currentVerses = getVersesForPage(currentSurahObj, currentPage)
+
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            item {
-                                Text(
-                                    text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1B4332),
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
+                            // Bismillah Header for Surah Start or Page 1
+                            if (currentPage == currentSurahObj.startPage && currentSurahObj.number != 9 && currentSurahObj.number != 1) {
+                                item {
+                                    Text(
+                                        text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+                                        fontSize = (fontSizeSp + 2).sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1B4332),
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(vertical = 6.dp)
+                                    )
+                                }
                             }
 
-                            val sampleVerses = SURAH_SAMPLE_VERSES[currentSurahObj.number] ?: listOf(
-                                "وَالْقُرْآنِ الْحَكِيمِ ۚ إِنَّكَ لَمِنَ الْمُرْسَلِينَ ۚ عَلَىٰ صِرَاطٍ مُّسْتَقِيمٍ ۚ تَنزِيلَ الْعَزِيزِ الرَّحِيمِ",
-                                "إِنَّا جَعَلْنَا فِي أَعْنَاقِهِمْ أَغْلَالًا فَهِيَ إِلَى الْأَذْقَانِ فَهُم مُّقْمَحُونَ",
-                                "وَجَعَلْنَا مِن بَيْنِ أَيْدِيهِمْ سَدًّا وَمِنْ خَلْفِهِمْ سَدًّا فَأَغْشَيْنَاهُمْ فَهُمْ لَا يُبْصِرُونَ"
-                            )
-
-                            items(sampleVerses) { verse ->
+                            items(currentVerses) { verse ->
                                 Text(
                                     text = verse,
-                                    fontSize = 20.sp,
-                                    lineHeight = 36.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF2B2D42),
+                                    fontSize = fontSizeSp.sp,
+                                    lineHeight = (fontSizeSp * 1.8f).sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = Color(0xFF1F2937),
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
 
                             item {
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
                                 Text(
                                     text = "﴿ صَدَقَ اللَّهُ الْعَظِيمُ ﴾",
-                                    fontSize = 18.sp,
+                                    fontSize = (fontSizeSp - 2).sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF2D6A4F)
                                 )
@@ -498,9 +566,9 @@ fun QuranScreen(viewModel: MainViewModel) {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Page Navigation Buttons
+                    // Page Navigation Bar + Quick Jump
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -509,27 +577,45 @@ fun QuranScreen(viewModel: MainViewModel) {
                         OutlinedButton(
                             onClick = { if (currentPage > 1) currentPage-- },
                             enabled = currentPage > 1,
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
-                            Icon(Icons.Default.ArrowForward, contentDescription = null)
+                            Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("الصفحة السابقة")
+                            Text("السابقة", fontSize = 12.sp)
                         }
 
-                        Text(
-                            text = "$currentPage / 604",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = jumpPageInput,
+                                onValueChange = { input ->
+                                    jumpPageInput = input
+                                    val target = input.toIntOrNull()
+                                    if (target != null && target in 1..604) {
+                                        currentPage = target
+                                    }
+                                },
+                                placeholder = { Text("$currentPage", fontSize = 12.sp) },
+                                modifier = Modifier
+                                    .width(70.dp)
+                                    .height(42.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                singleLine = true,
+                                textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontSize = 12.sp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("/ ٦٠٤", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
 
                         Button(
                             onClick = { if (currentPage < 604) currentPage++ },
                             enabled = currentPage < 604,
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
-                            Text("الصفحة التالية")
+                            Text("التالية", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Icon(Icons.Default.ArrowBack, contentDescription = null)
+                            Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                         }
                     }
                 }

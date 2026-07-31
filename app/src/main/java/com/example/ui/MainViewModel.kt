@@ -167,6 +167,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _currentUserRole.value = newUser.role
             _isUserLoggedIn.value = true
 
+            triggerAutoSync()
             withContext(Dispatchers.Main) { onSuccess() }
         }
     }
@@ -377,25 +378,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun triggerAutoSync() {
+        if (firebaseSyncManager.isAutoSyncEnabled()) {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val json = backupManager.exportToJson()
+                    firebaseSyncManager.uploadToFirebase(json)
+                    lastSyncTimeState.value = firebaseSyncManager.getLastSyncTime()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
     // --- NOTES CRUD ---
-    fun addNote(note: NoteEntity) = viewModelScope.launch { db.noteDao().insertNote(note) }
-    fun updateNote(note: NoteEntity) = viewModelScope.launch { db.noteDao().updateNote(note) }
-    fun deleteNote(note: NoteEntity) = viewModelScope.launch { db.noteDao().deleteNote(note) }
+    fun addNote(note: NoteEntity) = viewModelScope.launch { db.noteDao().insertNote(note); triggerAutoSync() }
+    fun updateNote(note: NoteEntity) = viewModelScope.launch { db.noteDao().updateNote(note); triggerAutoSync() }
+    fun deleteNote(note: NoteEntity) = viewModelScope.launch { db.noteDao().deleteNote(note); triggerAutoSync() }
 
     // --- REMINDERS CRUD ---
-    fun addReminder(reminder: ReminderEntity) = viewModelScope.launch { db.reminderDao().insertReminder(reminder) }
-    fun updateReminder(reminder: ReminderEntity) = viewModelScope.launch { db.reminderDao().updateReminder(reminder) }
-    fun deleteReminder(reminder: ReminderEntity) = viewModelScope.launch { db.reminderDao().deleteReminder(reminder) }
+    fun addReminder(reminder: ReminderEntity) = viewModelScope.launch { db.reminderDao().insertReminder(reminder); triggerAutoSync() }
+    fun updateReminder(reminder: ReminderEntity) = viewModelScope.launch { db.reminderDao().updateReminder(reminder); triggerAutoSync() }
+    fun deleteReminder(reminder: ReminderEntity) = viewModelScope.launch { db.reminderDao().deleteReminder(reminder); triggerAutoSync() }
 
     // --- DEBTS CRUD ---
-    fun addDebt(debt: DebtEntity) = viewModelScope.launch { db.debtDao().insertDebt(debt) }
-    fun updateDebt(debt: DebtEntity) = viewModelScope.launch { db.debtDao().updateDebt(debt) }
-    fun deleteDebt(debt: DebtEntity) = viewModelScope.launch { db.debtDao().deleteDebt(debt) }
+    fun addDebt(debt: DebtEntity) = viewModelScope.launch { db.debtDao().insertDebt(debt); triggerAutoSync() }
+    fun updateDebt(debt: DebtEntity) = viewModelScope.launch { db.debtDao().updateDebt(debt); triggerAutoSync() }
+    fun deleteDebt(debt: DebtEntity) = viewModelScope.launch { db.debtDao().deleteDebt(debt); triggerAutoSync() }
 
     // --- SAVINGS CRUD ---
-    fun addSavingsVault(vault: SavingsVaultEntity) = viewModelScope.launch { db.savingsDao().insertVault(vault) }
-    fun updateSavingsVault(vault: SavingsVaultEntity) = viewModelScope.launch { db.savingsDao().updateVault(vault) }
-    fun deleteSavingsVault(vault: SavingsVaultEntity) = viewModelScope.launch { db.savingsDao().deleteVault(vault) }
+    fun addSavingsVault(vault: SavingsVaultEntity) = viewModelScope.launch { db.savingsDao().insertVault(vault); triggerAutoSync() }
+    fun updateSavingsVault(vault: SavingsVaultEntity) = viewModelScope.launch { db.savingsDao().updateVault(vault); triggerAutoSync() }
+    fun deleteSavingsVault(vault: SavingsVaultEntity) = viewModelScope.launch { db.savingsDao().deleteVault(vault); triggerAutoSync() }
     fun depositToVault(vault: SavingsVaultEntity, depositAmount: Double, note: String) = viewModelScope.launch {
         val updatedVault = vault.copy(currentAmount = vault.currentAmount + depositAmount)
         db.savingsDao().updateVault(updatedVault)
@@ -407,22 +422,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 note = note
             )
         )
+        triggerAutoSync()
     }
 
     // --- LINKS CRUD ---
-    fun addLink(link: ImportantLinkEntity) = viewModelScope.launch { db.linkDao().insertLink(link) }
-    fun updateLink(link: ImportantLinkEntity) = viewModelScope.launch { db.linkDao().updateLink(link) }
-    fun deleteLink(link: ImportantLinkEntity) = viewModelScope.launch { db.linkDao().deleteLink(link) }
+    fun addLink(link: ImportantLinkEntity) = viewModelScope.launch { db.linkDao().insertLink(link); triggerAutoSync() }
+    fun updateLink(link: ImportantLinkEntity) = viewModelScope.launch { db.linkDao().updateLink(link); triggerAutoSync() }
+    fun deleteLink(link: ImportantLinkEntity) = viewModelScope.launch { db.linkDao().deleteLink(link); triggerAutoSync() }
 
     // --- DOCUMENTS CRUD ---
-    fun addDocument(doc: DocumentEntity) = viewModelScope.launch { db.documentDao().insertDocument(doc) }
-    fun updateDocument(doc: DocumentEntity) = viewModelScope.launch { db.documentDao().updateDocument(doc) }
-    fun deleteDocument(doc: DocumentEntity) = viewModelScope.launch { db.documentDao().deleteDocument(doc) }
+    fun addDocument(doc: DocumentEntity) = viewModelScope.launch { db.documentDao().insertDocument(doc); triggerAutoSync() }
+    fun updateDocument(doc: DocumentEntity) = viewModelScope.launch { db.documentDao().updateDocument(doc); triggerAutoSync() }
+    fun deleteDocument(doc: DocumentEntity) = viewModelScope.launch { db.documentDao().deleteDocument(doc); triggerAutoSync() }
 
     // --- RECEIPTS CRUD ---
-    fun addReceipt(receipt: PhotoReceiptEntity) = viewModelScope.launch { db.receiptDao().insertReceipt(receipt) }
-    fun updateReceipt(receipt: PhotoReceiptEntity) = viewModelScope.launch { db.receiptDao().updateReceipt(receipt) }
-    fun deleteReceipt(receipt: PhotoReceiptEntity) = viewModelScope.launch { db.receiptDao().deleteReceipt(receipt) }
+    fun addReceipt(receipt: PhotoReceiptEntity) = viewModelScope.launch { db.receiptDao().insertReceipt(receipt); triggerAutoSync() }
+    fun updateReceipt(receipt: PhotoReceiptEntity) = viewModelScope.launch { db.receiptDao().updateReceipt(receipt); triggerAutoSync() }
+    fun deleteReceipt(receipt: PhotoReceiptEntity) = viewModelScope.launch { db.receiptDao().deleteReceipt(receipt); triggerAutoSync() }
 
     // --- APP LOCK CONTROL ---
     fun unlockApp(pin: String): Boolean {

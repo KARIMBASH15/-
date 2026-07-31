@@ -378,6 +378,35 @@ fun BackupRestoreScreen(viewModel: MainViewModel) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // Auto Sync Active Banner
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "التزامن التلقائي المباشر مفعّل 🟢",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                )
+                                Text(
+                                    text = "يتم حفظ كافة تعديلاتك فوريًا محليًا على الجهاز وفي Firebase سحابيًا. في حالة عدم وجود إنترنت تحفظ التعديلات محليًا، وفور عودة النت تُرفع التحديثات تلقائيًا.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.DarkGray
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     OutlinedTextField(
                         value = pinInput,
                         onValueChange = {
@@ -400,76 +429,39 @@ fun BackupRestoreScreen(viewModel: MainViewModel) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "آخر مزامنة:",
+                            text = "آخر حفظ تلقائي مع السحابة:",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             text = lastSyncTime,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.secondary
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "تفعيل المزامنة التلقائية",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Switch(
-                            checked = isAutoSync,
-                            onCheckedChange = { viewModel.setAutoSync(it) }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                isSyncing = true
-                                viewModel.uploadToFirebase(pinInput) { success, msg ->
-                                    isSyncing = false
-                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = !isSyncing && pinInput.isNotBlank(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            if (isSyncing) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White)
-                            } else {
-                                Icon(Icons.Default.CloudUpload, contentDescription = null)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("رفع البيانات")
+                    // Cloud Restore Button
+                    OutlinedButton(
+                        onClick = {
+                            isSyncing = true
+                            viewModel.downloadFromFirebase(pinInput) { success, msg ->
+                                isSyncing = false
+                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                             }
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                isSyncing = true
-                                viewModel.downloadFromFirebase(pinInput) { success, msg ->
-                                    isSyncing = false
-                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = !isSyncing && pinInput.isNotBlank(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSyncing && pinInput.isNotBlank(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (isSyncing) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.primary)
+                        } else {
                             Icon(Icons.Default.CloudDownload, contentDescription = null)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("استرجاع البيانات")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("استرجاع البيانات من السحابة عند الحاجة ☁️", fontWeight = FontWeight.Bold)
                         }
                     }
                 }

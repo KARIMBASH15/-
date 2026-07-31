@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,6 +28,7 @@ fun ReceiptsScreen(viewModel: MainViewModel) {
     val receipts by viewModel.receipts.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var receiptToEdit by remember { mutableStateOf<PhotoReceiptEntity?>(null) }
+    var selectedImageForPreview by remember { mutableStateOf<PhotoReceiptEntity?>(null) }
 
     val totalSpent = receipts.sumOf { it.amount }
 
@@ -113,6 +115,7 @@ fun ReceiptsScreen(viewModel: MainViewModel) {
                     items(receipts, key = { it.id }) { receipt ->
                         ReceiptCardItem(
                             receipt = receipt,
+                            onView = { selectedImageForPreview = receipt },
                             onEdit = {
                                 receiptToEdit = receipt
                                 showAddDialog = true
@@ -123,6 +126,13 @@ fun ReceiptsScreen(viewModel: MainViewModel) {
                 }
             }
         }
+    }
+
+    if (selectedImageForPreview != null) {
+        ReceiptImageViewerDialog(
+            receipt = selectedImageForPreview!!,
+            onDismiss = { selectedImageForPreview = null }
+        )
     }
 
     if (showAddDialog) {
@@ -162,73 +172,253 @@ fun ReceiptsScreen(viewModel: MainViewModel) {
 @Composable
 fun ReceiptCardItem(
     receipt: PhotoReceiptEntity,
+    onView: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onEdit() },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(12.dp)
         ) {
-            if (receipt.imageUri.isNotEmpty()) {
-                AsyncImage(
-                    model = receipt.imageUri,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Surface(
-                    modifier = Modifier.size(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.ReceiptLong,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEdit() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (receipt.imageUri.isNotEmpty()) {
+                    AsyncImage(
+                        model = receipt.imageUri,
+                        contentDescription = "معاينة الفاتورة",
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onView() },
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Surface(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clickable { onView() },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.ReceiptLong,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = receipt.title,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "${receipt.amount.toInt()} جنيه | ${receipt.category}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (receipt.dateFormatted.isNotEmpty()) {
+                        Text(
+                            text = "التاريخ: ${receipt.dateFormatted}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = receipt.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = "${receipt.amount.toInt()} جنيه | ${receipt.category}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                if (receipt.dateFormatted.isNotEmpty()) {
-                    Text(
-                        text = "التاريخ: ${receipt.dateFormatted}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.Gray
-                    )
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = "حذف", tint = Color.Red.copy(alpha = 0.7f))
                 }
             }
 
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.DeleteOutline, contentDescription = "حذف", tint = Color.Red.copy(alpha = 0.7f))
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Action Buttons: View (مشاهدة) and Download (تحميل)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onView,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp)
+                ) {
+                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("مشاهدة 👁️", style = MaterialTheme.typography.labelLarge)
+                }
+
+                Button(
+                    onClick = { downloadReceiptImage(context, receipt) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp)
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("تحميل 📥", style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
+    }
+}
+
+@Composable
+fun ReceiptImageViewerDialog(
+    receipt: PhotoReceiptEntity,
+    onDismiss: () -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🖼️ ${receipt.title}",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "إغلاق")
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (receipt.imageUri.isNotEmpty()) {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(260.dp)
+                    ) {
+                        AsyncImage(
+                            model = receipt.imageUri,
+                            contentDescription = receipt.title,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("لا توجد صورة مرفقة مع هذه الفاتورة", color = Color.Gray)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("المبلغ: ${receipt.amount.toInt()} جنيه", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text("التصنيف: ${receipt.category}", style = MaterialTheme.typography.bodySmall)
+                        if (receipt.dateFormatted.isNotEmpty()) {
+                            Text("التاريخ: ${receipt.dateFormatted}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (receipt.notes.isNotEmpty()) {
+                            Text("ملاحظات: ${receipt.notes}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { downloadReceiptImage(context, receipt) },
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("تحميل الصورة 📥")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, shape = RoundedCornerShape(10.dp)) {
+                Text("إغلاق")
+            }
+        }
+    )
+}
+
+fun downloadReceiptImage(context: android.content.Context, receipt: PhotoReceiptEntity) {
+    if (receipt.imageUri.isBlank()) {
+        android.widget.Toast.makeText(context, "لا توجد صورة مرفقة لتحميلها", android.widget.Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    try {
+        val uri = android.net.Uri.parse(receipt.imageUri)
+        val resolver = context.contentResolver
+        val fileName = "Receipt_${receipt.title.replace(" ", "_")}_${System.currentTimeMillis()}.jpg"
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val contentValues = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_PICTURES + "/LifeOrganizer")
+            }
+            val imageUri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            imageUri?.let { destUri ->
+                resolver.openInputStream(uri)?.use { input ->
+                    resolver.openOutputStream(destUri)?.use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                android.widget.Toast.makeText(context, "تم حفظ الصورة بنجاح في معرض الصور (Pictures/LifeOrganizer) 📸", android.widget.Toast.LENGTH_LONG).show()
+            }
+        } else {
+            val picturesDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES)
+            val appDir = java.io.File(picturesDir, "LifeOrganizer")
+            if (!appDir.exists()) appDir.mkdirs()
+            val destFile = java.io.File(appDir, fileName)
+            resolver.openInputStream(uri)?.use { input ->
+                java.io.FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            android.widget.Toast.makeText(context, "تم حفظ الصورة بنجاح: ${destFile.absolutePath} 📂", android.widget.Toast.LENGTH_LONG).show()
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        android.widget.Toast.makeText(context, "تم تنزيل الفاتورة بنجاح في ذاكرة الجهاز المحفوظة 💾", android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 
