@@ -43,14 +43,21 @@ class MainActivity : ComponentActivity() {
             LifeOrganizerTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     val isLocked by viewModel.isAppLocked.collectAsState()
+                    val isLoggedIn by viewModel.isUserLoggedIn.collectAsState()
 
                     if (isLocked) {
                         AppLockOverlayScreen(
                             onUnlockSubmit = { pin -> viewModel.unlockApp(pin) }
                         )
+                    } else if (!isLoggedIn) {
+                        AuthScreen(
+                            viewModel = viewModel,
+                            onLoginSuccess = {}
+                        )
                     } else {
                         MainAppContent(viewModel = viewModel)
                     }
+
                 }
             }
         }
@@ -80,23 +87,28 @@ fun MainAppContent(viewModel: MainViewModel) {
 
     val primaryNavItems = listOf(
         NavNavItem("dashboard", "الرئيسية", Icons.Default.Dashboard),
+        NavNavItem("quran", "الوردي والمصحف", Icons.Default.MenuBook),
+        NavNavItem("azkar", "الأذكار والفوائد", Icons.Default.Mosque),
+        NavNavItem("ai_consultant", "المستشار", Icons.Default.RecordVoiceOver),
         NavNavItem("notes", "الملاحظات", Icons.Default.EditNote),
-        NavNavItem("reminders", "التذكيرات", Icons.Default.Notifications),
-        NavNavItem("debts", "الديون", Icons.Default.AccountBalanceWallet),
-        NavNavItem("savings", "التحويش", Icons.Default.Savings)
+        NavNavItem("reminders", "التذكيرات", Icons.Default.Notifications)
     )
 
     val secondaryNavItems = listOf(
-        NavNavItem("ai_consultant", "المستشار الصوتي 🎙️", Icons.Default.RecordVoiceOver),
+        NavNavItem("debts", "الديون", Icons.Default.AccountBalanceWallet),
+        NavNavItem("savings", "التحويش", Icons.Default.Savings),
         NavNavItem("links", "الروابط المهمة", Icons.Default.Link),
         NavNavItem("documents", "الملفات والوثائق", Icons.Default.Folder),
         NavNavItem("receipts", "الصور والفواتير", Icons.Default.ReceiptLong),
         NavNavItem("backup", "النسخ الاحتياطي", Icons.Default.CloudSync),
-        NavNavItem("security", "الأمان والقفل", Icons.Default.Security)
+        NavNavItem("security", "الأمان والقفل", Icons.Default.Security),
+        NavNavItem("about", "عن التطبيق والمطور", Icons.Default.Info)
     )
 
     val currentTitle = when (currentRoute) {
         "dashboard" -> "الرئيسية والإحصائيات"
+        "quran" -> "الوردي اليومي والمصحف الشريف 📖"
+        "azkar" -> "حصن المسلم والأذكار والفوائد 📿"
         "ai_consultant" -> "المستشار الصوتي 🎙️ (كريم الفردي)"
         "notes" -> "الملاحظات والمدونات"
         "reminders" -> "التذكيرات والمهام"
@@ -107,8 +119,13 @@ fun MainAppContent(viewModel: MainViewModel) {
         "receipts" -> "الصور والفواتير"
         "backup" -> "النسخ الاحتياطي"
         "security" -> "إعدادات الأمان والقفل"
+        "about" -> "عن التطبيق والاتصال بالمطور ℹ️"
         else -> "منظم حياتي"
     }
+
+    val unreadCount by viewModel.unreadNotificationCount.collectAsState()
+    val notificationsList by viewModel.allNotifications.collectAsState()
+    var showNotificationsDialog by remember { mutableStateOf(false) }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -120,15 +137,38 @@ fun MainAppContent(viewModel: MainViewModel) {
                         .fillMaxHeight()
                         .padding(16.dp)
                 ) {
-                    Text(
-                        text = "منظم حياتي 🌟",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier.padding(12.dp)
-                    )
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    val currentUsername by viewModel.currentUsername.collectAsState()
+                    val currentUserRole by viewModel.currentUserRole.collectAsState()
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "منظم حياتي 🌟",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            Text(
+                                text = "الحساب: $currentUsername",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+
+                        IconButton(onClick = { viewModel.logoutUser() }) {
+                            Icon(Icons.Default.Logout, contentDescription = "خروج", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
 
                     Text(
                         text = "الأقسام الرئيسية",
@@ -143,10 +183,17 @@ fun MainAppContent(viewModel: MainViewModel) {
                             icon = { Icon(item.icon, contentDescription = null) },
                             selected = currentRoute == item.route,
                             onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo("dashboard") { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                if (item.route == "dashboard") {
+                                    navController.navigate("dashboard") {
+                                        popUpTo(navController.graph.startDestinationId) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                } else if (currentRoute != item.route) {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                                 scope.launch { drawerState.close() }
                             },
@@ -168,10 +215,12 @@ fun MainAppContent(viewModel: MainViewModel) {
                             icon = { Icon(item.icon, contentDescription = null) },
                             selected = currentRoute == item.route,
                             onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo("dashboard") { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                if (currentRoute != item.route) {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                                 scope.launch { drawerState.close() }
                             },
@@ -197,6 +246,27 @@ fun MainAppContent(viewModel: MainViewModel) {
                         }
                     },
                     actions = {
+                        IconButton(onClick = {
+                            showNotificationsDialog = true
+                            viewModel.markAllNotificationsAsRead()
+                        }) {
+                            BadgedBox(
+                                badge = {
+                                    if (unreadCount > 0) {
+                                        Badge(containerColor = MaterialTheme.colorScheme.error) {
+                                            Text("$unreadCount")
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = if (unreadCount > 0) Icons.Default.NotificationsActive else Icons.Default.Notifications,
+                                    contentDescription = "الإشعارات",
+                                    tint = if (unreadCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
                         IconButton(onClick = { navController.navigate("security") }) {
                             Icon(Icons.Default.Lock, contentDescription = "الأمان")
                         }
@@ -204,17 +274,6 @@ fun MainAppContent(viewModel: MainViewModel) {
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background
                     )
-                )
-            },
-            floatingActionButton = {
-                ExtendedFloatingActionButton(
-                    onClick = { navController.navigate("ai_consultant") },
-                    icon = { Icon(Icons.Default.RecordVoiceOver, contentDescription = "المستشار الصوتي") },
-                    text = { Text("المستشار الصوتي 🎙️") },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.padding(bottom = 8.dp)
                 )
             },
             bottomBar = {
@@ -226,10 +285,17 @@ fun MainAppContent(viewModel: MainViewModel) {
                         NavigationBarItem(
                             selected = currentRoute == item.route,
                             onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo("dashboard") { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                if (item.route == "dashboard") {
+                                    navController.navigate("dashboard") {
+                                        popUpTo(navController.graph.startDestinationId) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                } else if (currentRoute != item.route) {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                             },
                             icon = { Icon(item.icon, contentDescription = item.title) },
@@ -254,6 +320,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                             onNavigateToSection = { route -> navController.navigate(route) }
                         )
                     }
+                    composable("quran") { QuranScreen(viewModel = viewModel) }
+                    composable("azkar") { AzkarScreen(viewModel = viewModel) }
+                    composable("about") { AboutScreen(viewModel = viewModel) }
                     composable("ai_consultant") { AiConsultantScreen(viewModel = viewModel) }
                     composable("notes") { NotesScreen(viewModel = viewModel) }
                     composable("reminders") { RemindersScreen(viewModel = viewModel) }
@@ -267,5 +336,82 @@ fun MainAppContent(viewModel: MainViewModel) {
                 }
             }
         }
+    }
+
+    if (showNotificationsDialog) {
+        AlertDialog(
+            onDismissRequest = { showNotificationsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("مركز الإشعارات والتنبيهات 🔔", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                }
+            },
+            text = {
+                if (notificationsList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("لا توجد إشعارات حالياً 📭", color = Color.Gray, style = MaterialTheme.typography.bodyMedium)
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 350.dp)
+                    ) {
+                        notificationsList.forEach { notification ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (notification.isRead) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = notification.title,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = notification.message,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "من: ${notification.sender}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.Gray
+                                        )
+                                    }
+
+                                    IconButton(onClick = { viewModel.deleteNotification(notification.id) }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color.Gray)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showNotificationsDialog = false }) {
+                    Text("إغلاق")
+                }
+            }
+        )
     }
 }

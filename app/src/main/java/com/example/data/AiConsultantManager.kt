@@ -27,23 +27,27 @@ class AiConsultantManager(context: Context) : TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val result = tts?.setLanguage(Locale("ar"))
-            if (result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED) {
-                isTtsReady = true
+            var result = tts?.setLanguage(Locale("ar"))
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                result = tts?.setLanguage(Locale.getDefault())
             }
+            isTtsReady = true
         }
     }
 
     fun speak(text: String) {
-        if (isTtsReady && tts != null) {
-            tts?.stop()
-            // Clean markdown formatting before speaking
-            val cleanText = text
-                .replace("*", "")
-                .replace("#", "")
-                .replace("-", " ")
-                .replace("`", "")
-            tts?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, "AiConsultantSpeech")
+        if (tts != null) {
+            try {
+                tts?.stop()
+                val cleanText = text
+                    .replace("*", "")
+                    .replace("#", "")
+                    .replace("-", " ")
+                    .replace("`", "")
+                tts?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, "AiConsultantSpeech")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -66,7 +70,7 @@ class AiConsultantManager(context: Context) : TextToSpeech.OnInitListener {
             return@withContext getOfflineFallbackAdvice(userPrompt)
         }
 
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey"
 
         val systemInstructionText = """
             أنت المستشار الذكي والمستشار المالي والشخصي الرسمي لتطبيق منظم حياتي.

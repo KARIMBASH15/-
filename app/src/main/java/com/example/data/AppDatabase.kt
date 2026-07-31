@@ -16,9 +16,12 @@ import com.example.data.entities.*
         SavingTransactionEntity::class,
         ImportantLinkEntity::class,
         DocumentEntity::class,
-        PhotoReceiptEntity::class
+        PhotoReceiptEntity::class,
+        UserEntity::class,
+        RecoveryRequestEntity::class,
+        AppNotificationEntity::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -30,6 +33,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun linkDao(): LinkDao
     abstract fun documentDao(): DocumentDao
     abstract fun receiptDao(): ReceiptDao
+    abstract fun userDao(): UserDao
+    abstract fun notificationDao(): NotificationDao
 
     companion object {
         @Volatile

@@ -20,6 +20,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val securityLockManager = SecurityLockManager(application)
     val firebaseSyncManager = FirebaseSyncManager(application)
     val aiConsultantManager = com.example.data.AiConsultantManager(application)
+    val authManager = com.example.data.AuthManager(application)
+    val appNotificationManager = com.example.data.AppNotificationManager(application)
+
+    private val _isUserLoggedIn = MutableStateFlow(authManager.isLoggedIn())
+    val isUserLoggedIn: StateFlow<Boolean> = _isUserLoggedIn.asStateFlow()
+
+    private val _currentUsername = MutableStateFlow(authManager.getCurrentUsername())
+    val currentUsername: StateFlow<String> = _currentUsername.asStateFlow()
+
+    private val _currentUserRole = MutableStateFlow(authManager.getCurrentRole())
+    val currentUserRole: StateFlow<String> = _currentUserRole.asStateFlow()
+
+    val allUsers: StateFlow<List<UserEntity>> = db.userDao().getAllUsers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val recoveryRequests: StateFlow<List<RecoveryRequestEntity>> = db.userDao().getAllRecoveryRequests()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allNotifications: StateFlow<List<AppNotificationEntity>> = db.notificationDao().getAllNotifications()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val unreadNotificationCount: StateFlow<Int> = allNotifications.map { list ->
+        list.count { !it.isRead }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val syncPinState = MutableStateFlow(firebaseSyncManager.getSyncPin())
     val lastSyncTimeState = MutableStateFlow(firebaseSyncManager.getLastSyncTime())
@@ -51,7 +75,145 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
 
     init {
-        // App starts clean - demo data removed as requested
+        // Ensure Admin Account exists in DB
+        viewModelScope.launch(Dispatchers.IO) {
+            val adminUser = db.userDao().getUserByUsername("km512")
+            if (adminUser == null) {
+                db.userDao().insertUser(
+                    UserEntity(
+                        username = "km512",
+                        passwordHash = "8090",
+                        recoveryEmail = "admin@lifeorganizer.com",
+                        role = "ADMIN"
+                    )
+                )
+            }
+        }
+    }
+
+    fun loginUser(
+        usernameInput: String,
+        passwordInput: String,
+        rememberMe: Boolean,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cleanUsername = usernameInput.trim()
+            val cleanPassword = passwordInput.trim()
+
+            if (cleanUsername.isBlank() || cleanPassword.isBlank()) {
+                withContext(Dispatchers.Main) { onError("الرجاء إدخال اسم المستخدم وكلمة السر") }
+                return@launch
+            }
+
+            // Special Admin Account Check
+            if (cleanUsername.equals("km512", ignoreCase = true) && cleanPassword == "8090") {
+                authManager.saveSession("km512", "ADMIN", rememberMe)
+                _currentUsername.value = "km512"
+                _currentUserRole.value = "ADMIN"
+                _isUserLoggedIn.value = true
+                withContext(Dispatchers.Main) { onSuccess() }
+                return@launch
+            }
+
+            // Standard User Check in DB
+            val existingUser = db.userDao().getUserByUsername(cleanUsername)
+            if (existingUser != null && existingUser.passwordHash == cleanPassword) {
+                authManager.saveSession(existingUser.username, existingUser.role, rememberMe)
+                _currentUsername.value = existingUser.username
+                _currentUserRole.value = existingUser.role
+                _isUserLoggedIn.value = true
+                withContext(Dispatchers.Main) { onSuccess() }
+            } else {
+                withContext(Dispatchers.Main) { onError("اسم المستخدم أو كلمة السر غير صحيحة") }
+            }
+        }
+    }
+
+    fun registerUser(
+        usernameInput: String,
+        passwordInput: String,
+        emailInput: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cleanUsername = usernameInput.trim()
+            val cleanPassword = passwordInput.trim()
+            val cleanEmail = emailInput.trim()
+
+            if (cleanUsername.isBlank() || cleanPassword.isBlank() || cleanEmail.isBlank()) {
+                withContext(Dispatchers.Main) { onError("جميع الحقول مطلوبة للتسجيل") }
+                return@launch
+            }
+
+            val existingUser = db.userDao().getUserByUsername(cleanUsername)
+            if (existingUser != null) {
+                withContext(Dispatchers.Main) { onError("اسم المستخدم مسجل بالفعل، اختر اسم آخر أو سجل دخولك") }
+                return@launch
+            }
+
+            val newUser = UserEntity(
+                username = cleanUsername,
+                passwordHash = cleanPassword,
+                recoveryEmail = cleanEmail,
+                role = if (cleanUsername.equals("km512", ignoreCase = true)) "ADMIN" else "USER"
+            )
+            db.userDao().insertUser(newUser)
+
+            authManager.saveSession(newUser.username, newUser.role, rememberMe = true)
+            _currentUsername.value = newUser.username
+            _currentUserRole.value = newUser.role
+            _isUserLoggedIn.value = true
+
+            withContext(Dispatchers.Main) { onSuccess() }
+        }
+    }
+
+    fun submitRecoveryRequest(
+        usernameInput: String,
+        emailInput: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cleanUsername = usernameInput.trim()
+            val cleanEmail = emailInput.trim()
+
+            if (cleanUsername.isBlank() || cleanEmail.isBlank()) {
+                withContext(Dispatchers.Main) { onError("الرجاء إدخال اسم المستخدم وإيميل الاسترداد") }
+                return@launch
+            }
+
+            db.userDao().insertRecoveryRequest(
+                RecoveryRequestEntity(
+                    username = cleanUsername,
+                    recoveryEmail = cleanEmail
+                )
+            )
+
+            withContext(Dispatchers.Main) { onSuccess() }
+        }
+    }
+
+    fun logoutUser() {
+        authManager.clearSession()
+        _isUserLoggedIn.value = false
+        _currentUsername.value = ""
+        _currentUserRole.value = "USER"
+    }
+
+    fun deleteUser(username: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.userDao().deleteUser(username)
+        }
+    }
+
+    fun deleteRecoveryRequest(id: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.userDao().deleteRecoveryRequest(id)
+        }
     }
 
     fun clearAllDatabase(onComplete: () -> Unit = {}) {
@@ -325,6 +487,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 onResult(false, result.exceptionOrNull()?.message ?: "لم يتم العثور على بيانات في Firebase")
             }
+        }
+    }
+
+    // --- NOTIFICATION METHODS ---
+    fun sendBroadcastNotification(title: String, message: String, onComplete: () -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val notificationEntity = AppNotificationEntity(
+                title = title,
+                message = message,
+                sender = "الإدارة 🛡️"
+            )
+            val insertedId = db.notificationDao().insertNotification(notificationEntity)
+            
+            // Post system status bar notification with subtle tone
+            appNotificationManager.sendNotification(
+                id = insertedId.toInt(),
+                title = title,
+                message = message
+            )
+
+            withContext(Dispatchers.Main) {
+                onComplete()
+            }
+        }
+    }
+
+    fun markNotificationAsRead(id: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.notificationDao().markAsRead(id)
+        }
+    }
+
+    fun markAllNotificationsAsRead() {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.notificationDao().markAllAsRead()
+        }
+    }
+
+    fun deleteNotification(id: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.notificationDao().deleteNotification(id)
         }
     }
 }

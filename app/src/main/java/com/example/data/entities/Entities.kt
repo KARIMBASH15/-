@@ -91,3 +91,32 @@ data class PhotoReceiptEntity(
     val notes: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "users")
+data class UserEntity(
+    @PrimaryKey val username: String,
+    val passwordHash: String,
+    val recoveryEmail: String = "",
+    val role: String = "USER", // "ADMIN" or "USER"
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "recovery_requests")
+data class RecoveryRequestEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val username: String,
+    val recoveryEmail: String,
+    val status: String = "قيد الانتظار",
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "app_notifications")
+data class AppNotificationEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val title: String,
+    val message: String,
+    val sender: String = "الإدارة 🛡️",
+    val isRead: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis()
+)
+

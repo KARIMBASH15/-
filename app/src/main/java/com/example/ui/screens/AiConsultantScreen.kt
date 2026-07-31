@@ -1,6 +1,11 @@
 package com.example.ui.screens
 
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -31,9 +37,10 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
     val scope = rememberCoroutineScope()
 
     var userQuery by remember { mutableStateOf("") }
-    var adviceResponse by remember { mutableStateOf("أهلاً بك! أنا مستشارك الذكي، طورني المهندس كريم الفردي لمساعدتك وإرشادك في إدارة ديونك، تحويشك، وتطوير حياتك اليومية. أطلب مني أي استشارة!") }
+    var adviceResponse by remember { mutableStateOf("أهلاً بك! أنا مستشارك الذكي الصوتي، طورني المهندس كريم الفردي لمساعدتك وإرشادك بالصوت والكلمات في إدارة ديونك، تحويشك، وتطوير حياتك اليومية. تحدث معي الآن!") }
     var isLoading by remember { mutableStateOf(false) }
     var isSpeaking by remember { mutableStateOf(false) }
+    var autoSpeak by remember { mutableStateOf(true) }
 
     val quickQuestions = listOf(
         "من طور هذا التطبيق والمستشار؟ 👨‍💻",
@@ -41,6 +48,48 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
         "أفضل طريقة لسداد ديوني بسرعة 📉",
         "كيف أنظم أهدافي اليومية وملاحظاتي؟ 📝"
     )
+
+    fun processConsultation(query: String) {
+        if (query.isNotBlank()) {
+            isLoading = true
+            viewModel.aiConsultantManager.stopSpeech()
+            isSpeaking = false
+            scope.launch {
+                val resp = viewModel.aiConsultantManager.getAdvice(query)
+                adviceResponse = resp
+                isLoading = false
+                if (autoSpeak) {
+                    viewModel.aiConsultantManager.speak(resp)
+                    isSpeaking = true
+                }
+            }
+        }
+    }
+
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.getOrNull(0)
+            if (!spokenText.isNullOrBlank()) {
+                userQuery = spokenText
+                processConsultation(spokenText)
+            }
+        }
+    }
+
+    fun startVoiceRecognition() {
+        try {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ar-SA")
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "تحدث الآن.. المستشار الذكي يستمع إليك 🎙️")
+            }
+            speechRecognizerLauncher.launch(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "خاصية التعرف على الصوت غير متاحة في هذا الجهاز", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -106,7 +155,7 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
                                     )
                                 )
                                 Text(
-                                    text = "استشارات مالية وتنظيمية بالذكاء الاصطناعي",
+                                    text = "يتحدث ويرد عليك بالصوت مباشرة",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.White.copy(alpha = 0.8f)
                                 )
@@ -143,6 +192,45 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // --- PROMINENT VOICE RECORDING BUTTON ---
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "🎙️ تحدث بالصوت مباشرة مع المستشار",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "انقر على الميكروفون واسأل أي سؤال وسيجيبك المستشار بالصوت",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = { startVoiceRecognition() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("اضغط للتحدث بالصوت الآن 🎙️", style = MaterialTheme.typography.titleMedium)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // --- QUICK CONSULTATION SUGGESTIONS ---
         Text(
             text = "أسئلة استشارية شائعة:",
@@ -155,12 +243,7 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
                 OutlinedButton(
                     onClick = {
                         userQuery = question
-                        isLoading = true
-                        scope.launch {
-                            val resp = viewModel.aiConsultantManager.getAdvice(question)
-                            adviceResponse = resp
-                            isLoading = false
-                        }
+                        processConsultation(question)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -186,12 +269,17 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
             value = userQuery,
             onValueChange = { userQuery = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("اكتب سؤالك أو طلب الاستشارة هنا...") },
+            label = { Text("أو اكتب سؤالك النصي هنا...") },
             placeholder = { Text("مثال: كيف أقوم بادخار المبلغ لشراء سيارة؟") },
             trailingIcon = {
-                if (userQuery.isNotEmpty()) {
-                    IconButton(onClick = { userQuery = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = "مسح")
+                Row {
+                    IconButton(onClick = { startVoiceRecognition() }) {
+                        Icon(Icons.Default.Mic, contentDescription = "تحدث", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    if (userQuery.isNotEmpty()) {
+                        IconButton(onClick = { userQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "مسح")
+                        }
                     }
                 }
             },
@@ -204,14 +292,7 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
         Button(
             onClick = {
                 if (userQuery.isNotBlank()) {
-                    isLoading = true
-                    viewModel.aiConsultantManager.stopSpeech()
-                    isSpeaking = false
-                    scope.launch {
-                        val resp = viewModel.aiConsultantManager.getAdvice(userQuery)
-                        adviceResponse = resp
-                        isLoading = false
-                    }
+                    processConsultation(userQuery)
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -221,11 +302,11 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("جاري توليد الاستشارة الذكية...")
+                Text("جاري توليد الاستشارة بالصوت...")
             } else {
                 Icon(Icons.Default.AutoAwesome, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("طلب الاستشارة الذكية")
+                Text("طلب الاستشارة 💡")
             }
         }
 
@@ -252,13 +333,24 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "رد المستشار الذكي الصوتية",
+                            text = "رد المستشار الصوتي",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
 
                     // Voice Text-To-Speech Play / Stop Button
-                    Row {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("قراءة تلقائية", style = MaterialTheme.typography.labelSmall)
+                            Switch(
+                                checked = autoSpeak,
+                                onCheckedChange = { autoSpeak = it },
+                                modifier = Modifier.scale(0.7f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
                         IconButton(
                             onClick = {
                                 if (isSpeaking) {
@@ -287,6 +379,27 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(12.dp))
 
+                if (isSpeaking) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.VolumeUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "المستشار يتحدث معك الآن بصوته... 🔊",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
                 Text(
                     text = adviceResponse,
                     style = MaterialTheme.typography.bodyMedium,
@@ -296,3 +409,4 @@ fun AiConsultantScreen(viewModel: MainViewModel) {
         }
     }
 }
+

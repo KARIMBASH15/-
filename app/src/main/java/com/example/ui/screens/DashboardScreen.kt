@@ -247,6 +247,8 @@ fun DashboardScreen(
         )
 
         val categories = listOf(
+            CategoryShortcut("الوردي والمصحف", "اقرأ وتدبر 📖", Icons.Default.MenuBook, "quran", Color(0xFF059669)),
+            CategoryShortcut("الأذكار والفوائد", "حصن المسلم 📿", Icons.Default.Mosque, "azkar", Color(0xFFD97706)),
             CategoryShortcut("الملاحظات", "${notes.size} ملاحظة", Icons.Default.EditNote, "notes", PrimaryTeal),
             CategoryShortcut("التذكيرات", "$pendingReminders معلقة", Icons.Default.Notifications, "reminders", SecondaryTeal),
             CategoryShortcut("الديون", "إدارة المستحقات", Icons.Default.AttachMoney, "debts", MintGreen),
@@ -255,6 +257,7 @@ fun DashboardScreen(
             CategoryShortcut("الملفات", "${documents.size} وثيقة", Icons.Default.Folder, "documents", Color(0xFF6366F1)),
             CategoryShortcut("الفواتير والصور", "${receipts.size} فاتورة", Icons.Default.ReceiptLong, "receipts", Color(0xFFEC4899)),
             CategoryShortcut("النسخ الاحتياطي", "تصدير واستعادة", Icons.Default.CloudSync, "backup", Color(0xFF14B8A6)),
+            CategoryShortcut("عن التطبيق والمطور", "واتساب المطور 💬", Icons.Default.Chat, "about", Color(0xFF25D366)),
             CategoryShortcut("قفل التطبيق", "حماية بالرمز", Icons.Default.Lock, "security", Color(0xFF64748B))
         )
 

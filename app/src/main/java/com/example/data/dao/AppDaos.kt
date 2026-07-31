@@ -162,3 +162,49 @@ interface ReceiptDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(receipts: List<PhotoReceiptEntity>)
 }
+
+@Dao
+interface UserDao {
+    @Query("SELECT * FROM users WHERE LOWER(username) = LOWER(:username) LIMIT 1")
+    suspend fun getUserByUsername(username: String): UserEntity?
+
+    @Query("SELECT * FROM users ORDER BY createdAt DESC")
+    fun getAllUsers(): Flow<List<UserEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertUser(user: UserEntity)
+
+    @Query("DELETE FROM users WHERE username = :username")
+    suspend fun deleteUser(username: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRecoveryRequest(request: RecoveryRequestEntity)
+
+    @Query("SELECT * FROM recovery_requests ORDER BY createdAt DESC")
+    fun getAllRecoveryRequests(): Flow<List<RecoveryRequestEntity>>
+
+    @Query("DELETE FROM recovery_requests WHERE id = :id")
+    suspend fun deleteRecoveryRequest(id: Int)
+}
+
+@Dao
+interface NotificationDao {
+    @Query("SELECT * FROM app_notifications ORDER BY createdAt DESC")
+    fun getAllNotifications(): Flow<List<AppNotificationEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNotification(notification: AppNotificationEntity): Long
+
+    @Query("UPDATE app_notifications SET isRead = 1 WHERE id = :id")
+    suspend fun markAsRead(id: Int)
+
+    @Query("UPDATE app_notifications SET isRead = 1")
+    suspend fun markAllAsRead()
+
+    @Query("DELETE FROM app_notifications WHERE id = :id")
+    suspend fun deleteNotification(id: Int)
+
+    @Query("DELETE FROM app_notifications")
+    suspend fun deleteAllNotifications()
+}
+
