@@ -236,9 +236,9 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Life Sections Horizontal Cards
+        // Life Sections Grid (3 per row)
         Text(
-            text = "⚡ وصول سريع للأقسام",
+            text = "⚡ جميع الأقسام والخدمات",
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -261,18 +261,32 @@ fun DashboardScreen(
             CategoryShortcut("قفل التطبيق", "حماية بالرمز", Icons.Default.Lock, "security", Color(0xFF64748B))
         )
 
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(categories) { item ->
-                SectionShortcutCard(
-                    title = item.title,
-                    countText = item.subtitle,
-                    icon = item.icon,
-                    color = item.color,
-                    onClick = { onNavigateToSection(item.route) }
-                )
+            categories.chunked(3).forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowItems.forEach { item ->
+                        Box(modifier = Modifier.weight(1f)) {
+                            SectionShortcutCard(
+                                title = item.title,
+                                countText = item.subtitle,
+                                icon = item.icon,
+                                color = item.color,
+                                onClick = { onNavigateToSection(item.route) }
+                            )
+                        }
+                    }
+                    repeat(3 - rowItems.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
             }
         }
 
@@ -420,23 +434,23 @@ fun SectionShortcutCard(
 ) {
     Card(
         modifier = Modifier
-            .width(135.dp)
-            .height(115.dp)
+            .fillMaxWidth()
+            .height(105.dp)
             .clickable { onClick() }
-            .shadow(2.dp, RoundedCornerShape(16.dp)),
+            .shadow(2.dp, RoundedCornerShape(14.dp)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(14.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(10.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(color.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -444,20 +458,22 @@ fun SectionShortcutCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = color,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    maxLines = 1
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = countText,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                     color = Color.Gray,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,12 +21,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.ui.MainViewModel
 
 data class SurahInfo(
@@ -272,6 +276,27 @@ fun QuranScreen(viewModel: MainViewModel) {
     var activeTab by remember { mutableIntStateOf(0) } // 0 = Index/Surahs, 1 = Reading View
     var fontSizeSp by remember { mutableFloatStateOf(22f) }
     var jumpPageInput by remember { mutableStateOf("") }
+    var isFullScreenMode by remember { mutableStateOf(false) }
+
+    // Swipe gesture detection helper for flipping Quran pages horizontally
+    var dragAccumulator by remember { mutableFloatStateOf(0f) }
+    val pageSwipeModifier = Modifier.pointerInput(currentPage) {
+        detectHorizontalDragGestures(
+            onDragEnd = {
+                if (dragAccumulator > 50f) {
+                    // Dragged Right -> Previous Page
+                    if (currentPage > 1) currentPage--
+                } else if (dragAccumulator < -50f) {
+                    // Dragged Left -> Next Page
+                    if (currentPage < 604) currentPage++
+                }
+                dragAccumulator = 0f
+            },
+            onHorizontalDrag = { _, dragAmount ->
+                dragAccumulator += dragAmount
+            }
+        )
+    }
 
     val filteredSurahs = remember(searchQuery) {
         if (searchQuery.isBlank()) QURAN_SURAHS
@@ -462,7 +487,7 @@ fun QuranScreen(viewModel: MainViewModel) {
                 }
             }
         } else {
-            // READING VIEW (Full Page Authentic Madani Mushaf)
+            // READING VIEW (Full Page Authentic Madani Mushaf with Swipe & Fullscreen)
             val currentSurahObj = selectedSurah ?: QURAN_SURAHS.find { it.startPage <= currentPage && (QURAN_SURAHS.getOrNull(QURAN_SURAHS.indexOf(it) + 1)?.startPage ?: 605) > currentPage } ?: QURAN_SURAHS.first()
             val juzNumber = ((currentPage - 1) / 20) + 1
 
@@ -471,7 +496,7 @@ fun QuranScreen(viewModel: MainViewModel) {
                     .fillMaxSize()
                     .padding(4.dp)
             ) {
-                // Top Bar Control Panel (Font Size, Bookmark, Jump, Save Position)
+                // Top Bar Control Panel (Expand Fullscreen, Font Size, Bookmark, Jump)
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -486,38 +511,50 @@ fun QuranScreen(viewModel: MainViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Button(
+                            onClick = { isFullScreenMode = true },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B4332)),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Fullscreen, contentDescription = "ملء الشاشة", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("توسيع المصحف ⛶", fontSize = 12.sp)
+                        }
+
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("حجم الخط:", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-                            IconButton(onClick = { if (fontSizeSp > 16f) fontSizeSp -= 2f }) {
-                                Text("A-", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("الخط:", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                            IconButton(onClick = { if (fontSizeSp > 16f) fontSizeSp -= 2f }, modifier = Modifier.size(32.dp)) {
+                                Text("A-", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
                             }
                             Text(
                                 text = "${fontSizeSp.toInt()}",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            IconButton(onClick = { if (fontSizeSp < 38f) fontSizeSp += 2f }) {
-                                Text("A+", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            IconButton(onClick = { if (fontSizeSp < 38f) fontSizeSp += 2f }, modifier = Modifier.size(32.dp)) {
+                                Text("A+", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
                             }
                         }
 
                         Button(
                             onClick = { saveLastPosition(currentPage, currentSurahObj.name) },
                             shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Icon(Icons.Default.Bookmark, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("حفظ الموضع 🔖", fontSize = 12.sp)
+                            Text("حفظ 🔖", fontSize = 12.sp)
                         }
                     }
                 }
 
-                // AUTHENTIC MADANI QURAN PAGE CANVAS
+                // AUTHENTIC MADANI QURAN PAGE CANVAS WITH SWIPE GESTURE (يمين ويسار)
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
+                        .then(pageSwipeModifier)
                         .background(Color(0xFFFFFDF0), RoundedCornerShape(8.dp))
                         .border(3.dp, Color(0xFFC9A227), RoundedCornerShape(8.dp))
                         .padding(6.dp)
@@ -534,7 +571,7 @@ fun QuranScreen(viewModel: MainViewModel) {
                             modifier = Modifier.fillMaxSize(),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Top Header Line inside Mushaf Frame (Surah Name Left • Juz Name Right)
+                            // Top Header Line inside Mushaf Frame
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -549,6 +586,11 @@ fun QuranScreen(viewModel: MainViewModel) {
                                     color = Color(0xFFB23B23)
                                 )
                                 Text(
+                                    text = "👈 اسحب لتقليب الصفحات 👉",
+                                    fontSize = 10.sp,
+                                    color = Color.Gray
+                                )
+                                Text(
                                     text = "سُورَةُ ${currentSurahObj.name}",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
@@ -559,7 +601,7 @@ fun QuranScreen(viewModel: MainViewModel) {
                             HorizontalDivider(color = Color(0xFFC9A227), thickness = 1.dp)
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Quran Verses Scrollable Page Content
+                            // Quran Verses Content
                             val currentVerses = getVersesForPage(currentSurahObj, currentPage)
 
                             LazyColumn(
@@ -569,7 +611,7 @@ fun QuranScreen(viewModel: MainViewModel) {
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                // Bismillah Ornate Header Banner for Surah Start
+                                // Bismillah Banner
                                 if (currentPage == currentSurahObj.startPage && currentSurahObj.number != 9) {
                                     item {
                                         Surface(
@@ -625,7 +667,7 @@ fun QuranScreen(viewModel: MainViewModel) {
                             Spacer(modifier = Modifier.height(4.dp))
                             HorizontalDivider(color = Color(0xFFC9A227), thickness = 1.dp)
 
-                            // Bottom Page Number Frame (Centered inside Mushaf Frame)
+                            // Bottom Page Number Frame
                             Box(
                                 modifier = Modifier
                                     .padding(top = 4.dp)
@@ -648,7 +690,7 @@ fun QuranScreen(viewModel: MainViewModel) {
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Bottom Page Navigation Bar & Direct Page Jump Input
+                // Bottom Page Navigation Bar
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -665,11 +707,11 @@ fun QuranScreen(viewModel: MainViewModel) {
                             onClick = { if (currentPage > 1) currentPage-- },
                             enabled = currentPage > 1,
                             shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("الصفحة السابقة", fontSize = 12.sp)
+                            Text("السابقة", fontSize = 12.sp)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -686,7 +728,7 @@ fun QuranScreen(viewModel: MainViewModel) {
                                 },
                                 placeholder = { Text("$currentPage", fontSize = 12.sp) },
                                 modifier = Modifier
-                                    .width(64.dp)
+                                    .width(60.dp)
                                     .height(40.dp),
                                 shape = RoundedCornerShape(8.dp),
                                 singleLine = true,
@@ -700,11 +742,243 @@ fun QuranScreen(viewModel: MainViewModel) {
                             onClick = { if (currentPage < 604) currentPage++ },
                             enabled = currentPage < 604,
                             shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            Text("الصفحة التالية", fontSize = 12.sp)
+                            Text("التالية", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
                             Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // FULL SCREEN EXPANDED MUSHAF DIALOG (كامل بحجم الشاشة)
+    if (isFullScreenMode) {
+        val currentSurahObj = selectedSurah ?: QURAN_SURAHS.find { it.startPage <= currentPage && (QURAN_SURAHS.getOrNull(QURAN_SURAHS.indexOf(it) + 1)?.startPage ?: 605) > currentPage } ?: QURAN_SURAHS.first()
+        val juzNumber = ((currentPage - 1) / 20) + 1
+
+        Dialog(
+            onDismissRequest = { isFullScreenMode = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color(0xFFFFFDF0)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp)
+                ) {
+                    // Fullscreen Floating Control Header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = { isFullScreenMode = false },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB23B23)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.FullscreenExit, contentDescription = "إغلاق", modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("إغلاق ملء الشاشة ✕", fontSize = 12.sp)
+                        }
+
+                        Text(
+                            text = "سُورَةُ ${currentSurahObj.name} • الجُزْءُ ${getJuzOrdinal(juzNumber)}",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1B4332)
+                        )
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { if (fontSizeSp > 18f) fontSizeSp -= 2f }) {
+                                Text("A-", fontWeight = FontWeight.Bold, color = Color(0xFF1B4332))
+                            }
+                            IconButton(onClick = { if (fontSizeSp < 42f) fontSizeSp += 2f }) {
+                                Text("A+", fontWeight = FontWeight.Bold, color = Color(0xFF1B4332))
+                            }
+                        }
+                    }
+
+                    // Authentic Full Screen Madani Mushaf Canvas with Swipe Gesture
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .then(pageSwipeModifier)
+                            .background(Color(0xFFFFFDF0), RoundedCornerShape(12.dp))
+                            .border(4.dp, Color(0xFFC9A227), RoundedCornerShape(12.dp))
+                            .padding(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .border(1.5.dp, Color(0xFF1B4332), RoundedCornerShape(10.dp))
+                                .border(2.5.dp, Color(0xFFE5C158), RoundedCornerShape(10.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "الجُزْءُ ${getJuzOrdinal(juzNumber)}",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFB23B23)
+                                    )
+                                    Text(
+                                        text = "سُورَةُ ${currentSurahObj.name}",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFB23B23)
+                                    )
+                                }
+
+                                HorizontalDivider(color = Color(0xFFC9A227), thickness = 1.5.dp)
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                val currentVerses = getVersesForPage(currentSurahObj, currentPage)
+
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    if (currentPage == currentSurahObj.startPage && currentSurahObj.number != 9) {
+                                        item {
+                                            Surface(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 10.dp),
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = Color(0xFFFAF0CA),
+                                                border = BorderStroke(2.dp, Color(0xFFC9A227))
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(vertical = 10.dp),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+                                                        fontSize = (fontSizeSp + 4).sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFF1B4332),
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    items(currentVerses) { verse ->
+                                        Text(
+                                            text = verse,
+                                            fontSize = fontSizeSp.sp,
+                                            lineHeight = (fontSizeSp * 1.9f).sp,
+                                            fontWeight = FontWeight.Normal,
+                                            color = Color(0xFF111827),
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+
+                                    item {
+                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Text(
+                                            text = "﴿ صَدَقَ اللَّهُ الْعَظِيمُ ﴾",
+                                            fontSize = fontSizeSp.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF2D6A4F)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+                                HorizontalDivider(color = Color(0xFFC9A227), thickness = 1.5.dp)
+
+                                // Bottom Centered Page Badge inside Fullscreen Frame
+                                Box(
+                                    modifier = Modifier
+                                        .padding(top = 6.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFFFAF0CA))
+                                        .border(1.5.dp, Color(0xFFC9A227), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 24.dp, vertical = 4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = toArabicDigits(currentPage),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1B4332)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Fullscreen Bottom Navigation Bar
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = { if (currentPage > 1) currentPage-- },
+                                enabled = currentPage > 1,
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("الصفحة السابقة")
+                            }
+
+                            Button(
+                                onClick = { saveLastPosition(currentPage, currentSurahObj.name) },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("حفظ الموضع 🔖")
+                            }
+
+                            Button(
+                                onClick = { if (currentPage < 604) currentPage++ },
+                                enabled = currentPage < 604,
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("الصفحة التالية")
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
                         }
                     }
                 }
