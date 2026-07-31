@@ -8,8 +8,10 @@ import com.example.data.BackupManager
 import com.example.data.FirebaseSyncManager
 import com.example.data.SecurityLockManager
 import com.example.data.entities.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -17,6 +19,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val backupManager = BackupManager(db)
     val securityLockManager = SecurityLockManager(application)
     val firebaseSyncManager = FirebaseSyncManager(application)
+    val aiConsultantManager = com.example.data.AiConsultantManager(application)
 
     val syncPinState = MutableStateFlow(firebaseSyncManager.getSyncPin())
     val lastSyncTimeState = MutableStateFlow(firebaseSyncManager.getLastSyncTime())
@@ -48,7 +51,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
 
     init {
-        seedInitialDataIfEmpty()
+        // App starts clean - demo data removed as requested
+    }
+
+    fun clearAllDatabase(onComplete: () -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.clearAllTables()
+            withContext(Dispatchers.Main) {
+                onComplete()
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        aiConsultantManager.shutdown()
     }
 
     private fun seedInitialDataIfEmpty() {

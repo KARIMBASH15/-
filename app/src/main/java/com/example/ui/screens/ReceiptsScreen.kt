@@ -238,14 +238,36 @@ fun AddEditReceiptDialog(
     onDismiss: () -> Unit,
     onSave: (title: String, amount: Double, category: String, date: String, imageUri: String, notes: String) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var title by remember { mutableStateOf(existingReceipt?.title ?: "") }
     var amountText by remember { mutableStateOf(existingReceipt?.amount?.toInt()?.toString() ?: "") }
     var category by remember { mutableStateOf(existingReceipt?.category ?: "فواتير") }
-    var date by remember { mutableStateOf(existingReceipt?.dateFormatted ?: "2026-07-29") }
+    var date by remember { mutableStateOf(existingReceipt?.dateFormatted ?: "2026-07-31") }
     var imageUri by remember { mutableStateOf(existingReceipt?.imageUri ?: "") }
     var notes by remember { mutableStateOf(existingReceipt?.notes ?: "") }
 
     val categories = listOf("فواتير", "تسوق", "مطاعم", "صيانة", "أخرى")
+
+    // Image Picker Launcher
+    val photoPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            try {
+                val inputStream = context.contentResolver.openInputStream(it)
+                val file = java.io.File(context.filesDir, "receipt_${System.currentTimeMillis()}.jpg")
+                val outputStream = java.io.FileOutputStream(file)
+                inputStream?.use { input ->
+                    outputStream.use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                imageUri = android.net.Uri.fromFile(file).toString()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -282,19 +304,39 @@ fun AddEditReceiptDialog(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Image Upload / Pick Button
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (imageUri.isNotEmpty()) {
+                            CoilImagePreview(uriStr = imageUri, modifier = Modifier.size(120.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        Button(
+                            onClick = { photoPickerLauncher.launch("image/*") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.AddPhotoAlternate, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (imageUri.isEmpty()) "رفع / اختيار صورة الفاتورة 🖼️" else "تغيير الصورة المرفوعة 📷")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 OutlinedTextField(
                     value = date,
                     onValueChange = { date = it },
                     label = { Text("التاريخ") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = imageUri,
-                    onValueChange = { imageUri = it },
-                    label = { Text("رابط/مسار الصورة (اختياري)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -324,5 +366,15 @@ fun AddEditReceiptDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("إلغاء") }
         }
+    )
+}
+
+@Composable
+fun CoilImagePreview(uriStr: String, modifier: Modifier = Modifier) {
+    coil.compose.AsyncImage(
+        model = uriStr,
+        contentDescription = "معاينة الفاتورة",
+        modifier = modifier.clip(RoundedCornerShape(10.dp)),
+        contentScale = androidx.compose.ui.layout.ContentScale.Crop
     )
 }

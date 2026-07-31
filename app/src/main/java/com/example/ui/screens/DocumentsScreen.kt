@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -86,12 +87,13 @@ fun DocumentsScreen(viewModel: MainViewModel) {
         AddEditDocumentDialog(
             existingDoc = docToEdit,
             onDismiss = { showAddDialog = false },
-            onSave = { title, category, notes ->
+            onSave = { title, category, fileUri, notes ->
                 if (docToEdit == null) {
                     viewModel.addDocument(
                         DocumentEntity(
                             title = title,
                             category = category,
+                            fileUri = fileUri,
                             notes = notes
                         )
                     )
@@ -100,6 +102,7 @@ fun DocumentsScreen(viewModel: MainViewModel) {
                         docToEdit!!.copy(
                             title = title,
                             category = category,
+                            fileUri = fileUri,
                             notes = notes
                         )
                     )
@@ -130,12 +133,23 @@ fun DocumentCardItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Folder,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(36.dp)
-            )
+            if (document.fileUri.isNotEmpty()) {
+                coil.compose.AsyncImage(
+                    model = document.fileUri,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -176,13 +190,36 @@ fun DocumentCardItem(
 fun AddEditDocumentDialog(
     existingDoc: DocumentEntity?,
     onDismiss: () -> Unit,
-    onSave: (title: String, category: String, notes: String) -> Unit
+    onSave: (title: String, category: String, fileUri: String, notes: String) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var title by remember { mutableStateOf(existingDoc?.title ?: "") }
     var category by remember { mutableStateOf(existingDoc?.category ?: "هوية") }
+    var fileUri by remember { mutableStateOf(existingDoc?.fileUri ?: "") }
     var notes by remember { mutableStateOf(existingDoc?.notes ?: "") }
 
     val categories = listOf("هوية", "عقود", "شهادات", "مركبة", "أخرى")
+
+    // Document/Photo Picker Launcher
+    val docPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            try {
+                val inputStream = context.contentResolver.openInputStream(it)
+                val file = java.io.File(context.filesDir, "doc_${System.currentTimeMillis()}.jpg")
+                val outputStream = java.io.FileOutputStream(file)
+                inputStream?.use { input ->
+                    outputStream.use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                fileUri = android.net.Uri.fromFile(file).toString()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -210,6 +247,42 @@ fun AddEditDocumentDialog(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Document File Upload Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (fileUri.isNotEmpty()) {
+                            coil.compose.AsyncImage(
+                                model = fileUri,
+                                contentDescription = "معاينة الوثيقة",
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .clip(RoundedCornerShape(10.dp)),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        Button(
+                            onClick = { docPickerLauncher.launch("image/*") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.UploadFile, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (fileUri.isEmpty()) "رفع صورة/ملف الوثيقة 📄" else "تغيير ملف الوثيقة 🖼️")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
@@ -222,7 +295,7 @@ fun AddEditDocumentDialog(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        onSave(title, category, notes)
+                        onSave(title, category, fileUri, notes)
                     }
                 },
                 enabled = title.isNotBlank()

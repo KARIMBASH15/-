@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -306,6 +307,74 @@ fun BackupRestoreScreen(viewModel: MainViewModel) {
                     Text("استعادة البيانات المحلية")
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // --- CLEAR ALL DATABASE CARD ---
+        var showClearDbDialog by remember { mutableStateOf(false) }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "مسح قاعدة البيانات والبدء من جديد",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "سيؤدي هذا الإجراء لمسح كافة البيانات والمدونات والديون والتحويش نهائياً والبدء بسجل فارغ تماماً.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = { showClearDbDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.CleaningServices, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("مسح كافة البيانات والبدء من جديد 🗑️")
+                }
+            }
+        }
+
+        if (showClearDbDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearDbDialog = false },
+                title = { Text("تأكيد مسح البيانات") },
+                text = { Text("هل أنت متاكد من رغبتك في مسح كافة بيانات التطبيق وقاعدة البيانات والبدء من جديد؟ لن يمكنك التراجع بعد هذا الإجراء.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.clearAllDatabase {
+                                Toast.makeText(context, "تم مسح كافة البيانات وتفريغ قاعدة البيانات بنجاح! 🧹", Toast.LENGTH_LONG).show()
+                            }
+                            showClearDbDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("نعم، إريد المسح والبدء من جديد")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearDbDialog = false }) {
+                        Text("إلغاء")
+                    }
+                }
+            )
         }
     }
 }

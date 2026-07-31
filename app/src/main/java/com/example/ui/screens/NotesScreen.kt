@@ -199,6 +199,7 @@ fun NoteCardItem(
     onDelete: () -> Unit,
     onTogglePin: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val parsedColor = try {
         Color(android.graphics.Color.parseColor(note.colorHex))
     } catch (e: Exception) {
@@ -232,6 +233,22 @@ fun NoteCardItem(
                 }
 
                 Row {
+                    IconButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("Note", "${note.title}\n\n${note.content}")
+                            clipboard.setPrimaryClip(clip)
+                            android.widget.Toast.makeText(context, "تم نسخ الملاحظة إلى الحافظة! 📋", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "نسخ الملاحظة",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                     IconButton(onClick = onTogglePin, modifier = Modifier.size(28.dp)) {
                         Icon(
                             imageVector = Icons.Default.PushPin,
@@ -273,109 +290,263 @@ fun NoteCardItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditNoteDialog(
     existingNote: NoteEntity?,
     onDismiss: () -> Unit,
     onSave: (title: String, content: String, category: String, colorHex: String, isPinned: Boolean) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var title by remember { mutableStateOf(existingNote?.title ?: "") }
     var content by remember { mutableStateOf(existingNote?.content ?: "") }
     var category by remember { mutableStateOf(existingNote?.category ?: "عام") }
     var colorHex by remember { mutableStateOf(existingNote?.colorHex ?: "#E0F2FE") }
     var isPinned by remember { mutableStateOf(existingNote?.isPinned ?: false) }
 
+    // Notepad Font Size Controls
+    var fontSizeSp by remember { mutableStateOf(18) }
+
+    val fontSizes = listOf(14, 18, 22, 26, 30)
     val colorOptions = listOf("#E0F2FE", "#FEF3C7", "#DCFCE7", "#FCE7F3", "#F3E8FF", "#F1F5F9")
     val categoryOptions = listOf("عام", "أهداف", "عمل", "وصفات", "هام")
 
-    AlertDialog(
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(if (existingNote == null) "إضافة ملاحظة جديدة" else "تعديل الملاحظة")
-        },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Header & Action Bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (existingNote == null) "محرر الملاحظات المتقدم 📝" else "تعديل الملاحظة 📝",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Row {
+                        // Quick Copy Text Button
+                        IconButton(onClick = {
+                            if (content.isNotBlank() || title.isNotBlank()) {
+                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                val clip = android.content.ClipData.newPlainText("Note", "$title\n\n$content")
+                                clipboard.setPrimaryClip(clip)
+                                android.widget.Toast.makeText(context, "تم نسخ النص كاملاً للحافظة! 📋", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "نسخ النص", tint = MaterialTheme.colorScheme.primary)
+                        }
+
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "إغلاق")
+                        }
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // Title Input
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("عنوان الملاحظة") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // FONT SIZE CONTROLS & LINE TOOLS TOOLBAR
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("حجم الخط:", style = MaterialTheme.typography.labelMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                fontSizes.forEach { size ->
+                                    FilterChip(
+                                        selected = fontSizeSp == size,
+                                        onClick = { fontSizeSp = size },
+                                        label = { Text("${size}pt") },
+                                        modifier = Modifier.height(32.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Line formatting & selection buttons
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            AssistChip(
+                                onClick = {
+                                    val lines = content.split("\n")
+                                    content = lines.mapIndexed { index, line ->
+                                        val cleanLine = line.replace(Regex("^\\d+\\.\\s*"), "")
+                                        "${index + 1}. $cleanLine"
+                                    }.joinToString("\n")
+                                },
+                                label = { Text("ترقيم الأسطر 🔢") }
+                            )
+
+                            AssistChip(
+                                onClick = {
+                                    val lines = content.split("\n")
+                                    content = lines.map { line ->
+                                        if (line.startsWith("• ")) line else "• $line"
+                                    }.joinToString("\n")
+                                },
+                                label = { Text("نقاط •") }
+                            )
+
+                            AssistChip(
+                                onClick = {
+                                    content += if (content.isEmpty()) "• " else "\n• "
+                                },
+                                label = { Text("سطر جديد ↵") }
+                            )
+
+                            AssistChip(
+                                onClick = {
+                                    val lines = content.split("\n")
+                                    val lastLine = lines.lastOrNull { it.isNotBlank() } ?: ""
+                                    if (lastLine.isNotEmpty()) {
+                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        val clip = android.content.ClipData.newPlainText("Line", lastLine)
+                                        clipboard.setPrimaryClip(clip)
+                                        android.widget.Toast.makeText(context, "تم نسخ السطر الأخير! 📋", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                label = { Text("نسخ السطر الأخير 📄") }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Spacious Editor Area
                 OutlinedTextField(
                     value = content,
                     onValueChange = { content = it },
-                    label = { Text("محتوى الملاحظة") },
+                    label = { Text("محتوى الملاحظة والمدونة...") },
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        fontSize = androidx.compose.ui.unit.TextUnit(fontSizeSp.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp)
+                        .weight(1f),
+                    shape = RoundedCornerShape(12.dp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text("التصنيف:", style = MaterialTheme.typography.labelMedium)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    categoryOptions.forEach { cat ->
-                        FilterChip(
-                            selected = category == cat,
-                            onClick = { category = cat },
-                            label = { Text(cat) }
-                        )
-                    }
-                }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("لون الملاحظة:", style = MaterialTheme.typography.labelMedium)
+
+                // Categories & Color Options
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    colorOptions.forEach { hex ->
-                        val color = try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { Color.LightGray }
-                        Box(
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("التصنيف:", style = MaterialTheme.typography.labelSmall)
+                        Row(
                             modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(color)
-                                .border(
-                                    width = if (colorHex == hex) 3.dp else 1.dp,
-                                    color = if (colorHex == hex) MaterialTheme.colorScheme.primary else Color.Gray,
-                                    shape = CircleShape
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            categoryOptions.forEach { cat ->
+                                FilterChip(
+                                    selected = category == cat,
+                                    onClick = { category = cat },
+                                    label = { Text(cat) },
+                                    modifier = Modifier.height(32.dp)
                                 )
-                                .clickable { colorHex = hex }
-                        )
+                            }
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isPinned, onCheckedChange = { isPinned = it })
-                    Text("تثبيت في الأجندة الرئيسية")
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (title.isNotBlank()) {
-                        onSave(title, content, category, colorHex, isPinned)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        colorOptions.forEach { hex ->
+                            val color = try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { Color.LightGray }
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                                    .border(
+                                        width = if (colorHex == hex) 3.dp else 1.dp,
+                                        color = if (colorHex == hex) MaterialTheme.colorScheme.primary else Color.Gray,
+                                        shape = CircleShape
+                                    )
+                                    .clickable { colorHex = hex }
+                            )
+                        }
                     }
-                },
-                enabled = title.isNotBlank()
-            ) {
-                Text("حفظ")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء")
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = isPinned, onCheckedChange = { isPinned = it })
+                        Text("تثبيت", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        if (title.isNotBlank()) {
+                            onSave(title, content, category, colorHex, isPinned)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = title.isNotBlank(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("حفظ الملاحظة")
+                }
             }
         }
-    )
+    }
 }

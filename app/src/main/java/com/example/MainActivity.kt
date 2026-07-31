@@ -87,6 +87,7 @@ fun MainAppContent(viewModel: MainViewModel) {
     )
 
     val secondaryNavItems = listOf(
+        NavNavItem("ai_consultant", "المستشار الصوتي 🎙️", Icons.Default.RecordVoiceOver),
         NavNavItem("links", "الروابط المهمة", Icons.Default.Link),
         NavNavItem("documents", "الملفات والوثائق", Icons.Default.Folder),
         NavNavItem("receipts", "الصور والفواتير", Icons.Default.ReceiptLong),
@@ -96,6 +97,7 @@ fun MainAppContent(viewModel: MainViewModel) {
 
     val currentTitle = when (currentRoute) {
         "dashboard" -> "الرئيسية والإحصائيات"
+        "ai_consultant" -> "المستشار الصوتي 🎙️ (كريم الفردي)"
         "notes" -> "الملاحظات والمدونات"
         "reminders" -> "التذكيرات والمهام"
         "debts" -> "إدارة الديون"
@@ -204,6 +206,17 @@ fun MainAppContent(viewModel: MainViewModel) {
                     )
                 )
             },
+            floatingActionButton = {
+                ExtendedFloatingActionButton(
+                    onClick = { navController.navigate("ai_consultant") },
+                    icon = { Icon(Icons.Default.RecordVoiceOver, contentDescription = "المستشار الصوتي") },
+                    text = { Text("المستشار الصوتي 🎙️") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            },
             bottomBar = {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -241,6 +254,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                             onNavigateToSection = { route -> navController.navigate(route) }
                         )
                     }
+                    composable("ai_consultant") { AiConsultantScreen(viewModel = viewModel) }
                     composable("notes") { NotesScreen(viewModel = viewModel) }
                     composable("reminders") { RemindersScreen(viewModel = viewModel) }
                     composable("debts") { DebtsScreen(viewModel = viewModel) }
