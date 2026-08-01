@@ -1,8 +1,10 @@
 package com.example.ui.screens
 
+import android.content.Context
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +58,14 @@ fun DashboardScreen(
     val totalReceiptsSpent = receipts.sumOf { it.amount }
 
     val pendingReminders = reminders.count { !it.isCompleted }
+
+    val context = LocalContext.current
+    val quranPrefs = remember { context.getSharedPreferences("quran_prefs", Context.MODE_PRIVATE) }
+    val quranPage = quranPrefs.getInt("last_page", 1)
+    val quranSurah = quranPrefs.getString("last_surah", "الفاتحة") ?: "الفاتحة"
+    val quranProgressPercent = remember(quranPage) { (quranPage / 604f * 100).coerceIn(0.1f, 100f) }
+
+    var searchQuery by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -116,6 +127,103 @@ fun DashboardScreen(
                 }
             }
         }
+
+        // Quran Khatma Progress Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .shadow(4.dp, RoundedCornerShape(18.dp))
+                .clickable { onNavigateToSection("quran") },
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFDF0)),
+            border = BorderStroke(1.5.dp, Color(0xFFC9A227))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF1B4332)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MenuBook,
+                        contentDescription = "المصحف",
+                        tint = Color(0xFFFAF0CA),
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "متابع ختمة القرآن 📖",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1B4332)
+                            )
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1B4332).copy(alpha = 0.1f)
+                        ) {
+                            Text(
+                                text = "صفحة $quranPage من ٦٠٤",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1B4332)
+                                ),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "آخر قراءة: سورة $quranSurah",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.DarkGray)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LinearProgressIndicator(
+                        progress = { quranPage / 604f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = Color(0xFF2D6A4F),
+                        trackColor = Color(0xFFE5C158).copy(alpha = 0.3f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Button(
+                    onClick = { onNavigateToSection("quran") },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B4332)),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text("قراءة ➔", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Quick Overview Grid
         Text(
@@ -348,7 +456,245 @@ fun DashboardScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // --- CUSTOM USER HOME SCREEN WIDGETS SECTION ---
+        CustomHomeWidgetsSection(onNavigateToSection = onNavigateToSection)
     }
+}
+
+data class CustomHomeWidget(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val title: String,
+    val subtitle: String,
+    val actionRoute: String = "",
+    val count: Int = 0
+)
+
+@Composable
+fun CustomHomeWidgetsSection(onNavigateToSection: (String) -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("custom_home_widgets", Context.MODE_PRIVATE) }
+
+    var widgetList by remember {
+        mutableStateOf(loadCustomWidgets(prefs))
+    }
+    var showAddWidgetDialog by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "✨ عناصرك المخصصة للشاشة الرئيسية",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Button(
+                onClick = { showAddWidgetDialog = true },
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("إضافة عنصر ➕", fontSize = 12.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (widgetList.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            ) {
+                Text(
+                    text = "يمكنك إضافة اختصارات أو بطاقات مخصصة أو أهداف يومية هنا على الشاشة الرئيسية بضغطة زر.",
+                    modifier = Modifier.padding(14.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                widgetList.forEach { widget ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(2.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(widget.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                if (widget.subtitle.isNotEmpty()) {
+                                    Text(widget.subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (widget.actionRoute.isNotEmpty()) {
+                                    OutlinedButton(
+                                        onClick = { onNavigateToSection(widget.actionRoute) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("فتح ➔", fontSize = 11.sp)
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                } else {
+                                    // Custom Counter Button
+                                    Button(
+                                        onClick = {
+                                            val updated = widgetList.map {
+                                                if (it.id == widget.id) it.copy(count = it.count + 1) else it
+                                            }
+                                            widgetList = updated
+                                            saveCustomWidgets(prefs, updated)
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("العدد: ${widget.count} ➕", fontSize = 11.sp)
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        val updated = widgetList.filter { it.id != widget.id }
+                                        widgetList = updated
+                                        saveCustomWidgets(prefs, updated)
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color.Red.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddWidgetDialog) {
+        var newTitle by remember { mutableStateOf("") }
+        var newSubtitle by remember { mutableStateOf("") }
+        var selectedRoute by remember { mutableStateOf("notes") }
+
+        AlertDialog(
+            onDismissRequest = { showAddWidgetDialog = false },
+            title = { Text("إضافة عنصر مخصص للشاشة الرئيسية") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = newTitle,
+                        onValueChange = { newTitle = it },
+                        label = { Text("عنوان العنصر (مثال: شرب الماء / كتابة يوميات)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = newSubtitle,
+                        onValueChange = { newSubtitle = it },
+                        label = { Text("وصف أو ملحوظة مختصرة") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text("الانتقال السريع عند الضغط:", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedRoute == "notes",
+                            onClick = { selectedRoute = "notes" },
+                            label = { Text("الملاحظات", fontSize = 11.sp) }
+                        )
+                        FilterChip(
+                            selected = selectedRoute == "quran",
+                            onClick = { selectedRoute = "quran" },
+                            label = { Text("المصحف", fontSize = 11.sp) }
+                        )
+                        FilterChip(
+                            selected = selectedRoute == "counter",
+                            onClick = { selectedRoute = "counter" },
+                            label = { Text("عداد رقمي 🔢", fontSize = 11.sp) }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newTitle.isNotBlank()) {
+                            val newW = CustomHomeWidget(
+                                title = newTitle,
+                                subtitle = newSubtitle,
+                                actionRoute = if (selectedRoute == "counter") "" else selectedRoute,
+                                count = 0
+                            )
+                            val updated = widgetList + newW
+                            widgetList = updated
+                            saveCustomWidgets(prefs, updated)
+                            showAddWidgetDialog = false
+                        }
+                    },
+                    enabled = newTitle.isNotBlank()
+                ) {
+                    Text("إضافة")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddWidgetDialog = false }) { Text("إلغاء") }
+            }
+        )
+    }
+}
+
+fun loadCustomWidgets(prefs: android.content.SharedPreferences): List<CustomHomeWidget> {
+    val raw = prefs.getString("widgets_data", "") ?: ""
+    if (raw.isBlank()) return emptyList()
+    return try {
+        raw.split(";;;").mapNotNull { itemStr ->
+            val parts = itemStr.split("|||")
+            if (parts.size >= 5) {
+                CustomHomeWidget(
+                    id = parts[0],
+                    title = parts[1],
+                    subtitle = parts[2],
+                    actionRoute = parts[3],
+                    count = parts[4].toIntOrNull() ?: 0
+                )
+            } else null
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+
+fun saveCustomWidgets(prefs: android.content.SharedPreferences, list: List<CustomHomeWidget>) {
+    val encoded = list.joinToString(";;;") { "${it.id}|||${it.title}|||${it.subtitle}|||${it.actionRoute}|||${it.count}" }
+    prefs.edit().putString("widgets_data", encoded).apply()
 }
 
 data class CategoryShortcut(

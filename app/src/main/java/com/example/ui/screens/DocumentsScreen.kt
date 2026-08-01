@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -9,11 +10,15 @@ import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -28,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.entities.DocumentEntity
 import com.example.ui.MainViewModel
@@ -37,10 +43,27 @@ import java.io.FileOutputStream
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentsScreen(viewModel: MainViewModel) {
+    val context = LocalContext.current
     val documents by viewModel.documents.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var docToEdit by remember { mutableStateOf<DocumentEntity?>(null) }
     var selectedDocForPreview by remember { mutableStateOf<DocumentEntity?>(null) }
+
+    // Cloud Folders State
+    val folderPrefs = remember { context.getSharedPreferences("cloud_folders_pref", Context.MODE_PRIVATE) }
+    var customFolders by remember {
+        mutableStateOf(
+            folderPrefs.getStringSet("folders_list", null)?.toList()
+                ?: listOf("الكل", "هوية", "عقود", "شهادات", "مركبة", "صور شخصية", "مستندات عامة")
+        )
+    }
+    var selectedFolder by remember { mutableStateOf("الكل") }
+    var showCreateFolderDialog by remember { mutableStateOf(false) }
+
+    val filteredDocs = remember(documents, selectedFolder) {
+        if (selectedFolder == "الكل") documents
+        else documents.filter { it.category.equals(selectedFolder, ignoreCase = true) }
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -65,14 +88,51 @@ fun DocumentsScreen(viewModel: MainViewModel) {
                 .testTag("documents_screen")
         ) {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "📂 خزينة الصور والوثائق المهمة",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "📂 السحابة الخاصة والوثائق",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Button(
+                    onClick = { showCreateFolderDialog = true },
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Icon(Icons.Default.CreateNewFolder, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("مجلد جديد 📁", fontSize = 11.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Cloud Folders Selector Bar
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items(customFolders) { folder ->
+                    FilterChip(
+                        selected = selectedFolder == folder,
+                        onClick = { selectedFolder = folder },
+                        label = { Text("📁 $folder", fontSize = 12.sp, fontWeight = if (selectedFolder == folder) FontWeight.Bold else FontWeight.Normal) },
+                        leadingIcon = if (selectedFolder == folder) {
+                            { Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                        } else null
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
-            if (documents.isEmpty()) {
+            if (filteredDocs.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -85,8 +145,8 @@ fun DocumentsScreen(viewModel: MainViewModel) {
                             tint = Color.Gray.copy(alpha = 0.5f)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("لا توجد وثائق أو صور محفوظة حالياً.", color = Color.Gray)
-                        Text("اضغط زر (+) لرفع وتخزين صورة الهوية أو العقد أو أي وثيقة.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        Text("لا توجد ملفات أو صور في مجلد ($selectedFolder)", color = Color.Gray)
+                        Text("اضغط زر (+) لرفع وتخزين صورة الهوية أو العقد أو أي ملف.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     }
                 }
             } else {
@@ -94,7 +154,7 @@ fun DocumentsScreen(viewModel: MainViewModel) {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
-                    items(documents, key = { it.id }) { doc ->
+                    items(filteredDocs, key = { it.id }) { doc ->
                         DocumentCardItem(
                             document = doc,
                             onView = { selectedDocForPreview = doc },
@@ -110,6 +170,43 @@ fun DocumentsScreen(viewModel: MainViewModel) {
         }
     }
 
+    if (showCreateFolderDialog) {
+        var newFolderName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showCreateFolderDialog = false },
+            title = { Text("إنشاء مجلد سحابي جديد 📁") },
+            text = {
+                OutlinedTextField(
+                    value = newFolderName,
+                    onValueChange = { newFolderName = it },
+                    label = { Text("اسم المجلد (مثال: رخص القيادة / الفواتير)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newFolderName.isNotBlank() && !customFolders.contains(newFolderName)) {
+                            val updated = customFolders + newFolderName
+                            customFolders = updated
+                            folderPrefs.edit().putStringSet("folders_list", updated.toSet()).apply()
+                            selectedFolder = newFolderName
+                            showCreateFolderDialog = false
+                            Toast.makeText(context, "تم إنشاء المجلد السحابي بنجاح! 📂", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    enabled = newFolderName.isNotBlank()
+                ) {
+                    Text("إنشاء")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateFolderDialog = false }) { Text("إلغاء") }
+            }
+        )
+    }
+
     if (selectedDocForPreview != null) {
         DocumentImageViewerDialog(
             document = selectedDocForPreview!!,
@@ -120,6 +217,7 @@ fun DocumentsScreen(viewModel: MainViewModel) {
     if (showAddDialog) {
         AddEditDocumentDialog(
             existingDoc = docToEdit,
+            availableFolders = customFolders.filter { it != "الكل" },
             onDismiss = { showAddDialog = false },
             onSave = { title, category, fileUri, notes ->
                 if (docToEdit == null) {
@@ -239,34 +337,65 @@ fun DocumentCardItem(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Action Buttons: View (مشاهدة) and Download (تحميل)
+            // Action Buttons: View (مشاهدة), Share (مشاركة), and Download (تحميل)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 OutlinedButton(
                     onClick = onView,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp)
+                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp)
                 ) {
-                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("مشاهدة 👁️", style = MaterialTheme.typography.labelLarge)
+                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("عرض 👁️", fontSize = 11.sp)
+                }
+
+                OutlinedButton(
+                    onClick = { shareDocumentFile(context, document) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("مشاركة 📤", fontSize = 11.sp)
                 }
 
                 Button(
                     onClick = { downloadDocumentFile(context, document) },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp)
+                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp)
                 ) {
-                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("تحميل 📥", style = MaterialTheme.typography.labelLarge)
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("تحميل 📥", fontSize = 11.sp)
                 }
             }
         }
+    }
+}
+
+fun shareDocumentFile(context: Context, document: DocumentEntity) {
+    try {
+        val sendIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, "📄 ${document.title}\nالمجلد: ${document.category}\n${document.notes}")
+            if (document.fileUri.isNotBlank()) {
+                putExtra(Intent.EXTRA_STREAM, Uri.parse(document.fileUri))
+                type = "image/*"
+            } else {
+                type = "text/plain"
+            }
+        }
+        val shareIntent = Intent.createChooser(sendIntent, "مشاركة المستند عبر:")
+        context.startActivity(shareIntent)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        Toast.makeText(context, "تمت المشاركة!", Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -407,18 +536,19 @@ fun downloadDocumentFile(context: Context, document: DocumentEntity) {
 @Composable
 fun AddEditDocumentDialog(
     existingDoc: DocumentEntity?,
+    availableFolders: List<String> = listOf("هوية", "عقود", "شهادات", "مركبة", "صور شخصية", "مستندات عامة"),
     onDismiss: () -> Unit,
     onSave: (title: String, category: String, fileUri: String, notes: String) -> Unit
 ) {
     val context = LocalContext.current
     var title by remember { mutableStateOf(existingDoc?.title ?: "") }
-    var category by remember { mutableStateOf(existingDoc?.category ?: "هوية") }
+    var category by remember { mutableStateOf(existingDoc?.category ?: (availableFolders.firstOrNull() ?: "مستندات عامة")) }
     var fileUri by remember { mutableStateOf(existingDoc?.fileUri ?: "") }
     var notes by remember { mutableStateOf(existingDoc?.notes ?: "") }
 
-    val categories = listOf("هوية", "عقود", "شهادات", "مركبة", "صور شخصية", "أخرى")
+    val categories = if (availableFolders.isNotEmpty()) availableFolders else listOf("هوية", "عقود", "شهادات", "مركبة", "صور شخصية", "مستندات عامة")
 
-    // Document/Photo Picker Launcher
+    // Document/Photo Picker Launcher (*/*)
     val docPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -433,6 +563,7 @@ fun AddEditDocumentDialog(
                     }
                 }
                 fileUri = Uri.fromFile(file).toString()
+                Toast.makeText(context, "تم اختيار الملف بنجاح! 📁", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -441,40 +572,28 @@ fun AddEditDocumentDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (existingDoc == null) "إضافة وثيقة / صورة جديدة" else "تعديل الوثيقة") },
+        title = { Text(if (existingDoc == null) "رفع ملف / صورة جديدة للسحابة 📁" else "تعديل الملف") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("اسم الوثيقة أو الصورة (مثال: الهوية الوطنية)") },
+                    label = { Text("اسم الملف أو الصورة (مثال: عقد منزل / الهوية)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Text("التصنيف:", style = MaterialTheme.typography.labelMedium)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                Text("اختر المجلد السحابي:", style = MaterialTheme.typography.labelMedium)
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    categories.take(3).forEach { cat ->
+                    items(categories) { cat ->
                         FilterChip(
                             selected = category == cat,
                             onClick = { category = cat },
-                            label = { Text(cat, style = MaterialTheme.typography.labelSmall) }
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    categories.drop(3).forEach { cat ->
-                        FilterChip(
-                            selected = category == cat,
-                            onClick = { category = cat },
-                            label = { Text(cat, style = MaterialTheme.typography.labelSmall) }
+                            label = { Text("📁 $cat", style = MaterialTheme.typography.labelSmall) }
                         )
                     }
                 }
@@ -495,7 +614,7 @@ fun AddEditDocumentDialog(
                                 model = fileUri,
                                 contentDescription = "معاينة الوثيقة",
                                 modifier = Modifier
-                                    .size(130.dp)
+                                    .size(120.dp)
                                     .clip(RoundedCornerShape(10.dp)),
                                 contentScale = ContentScale.Fit
                             )
@@ -503,13 +622,13 @@ fun AddEditDocumentDialog(
                         }
 
                         Button(
-                            onClick = { docPickerLauncher.launch("image/*") },
+                            onClick = { docPickerLauncher.launch("*/*") },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.UploadFile, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (fileUri.isEmpty()) "رفع صورة الوثيقة 🖼️" else "تغيير الصورة المرفقة 📷")
+                            Text(if (fileUri.isEmpty()) "رفع ملف أو صورة من الجهاز 📂" else "تغيير الملف المرفق 📷")
                         }
                     }
                 }

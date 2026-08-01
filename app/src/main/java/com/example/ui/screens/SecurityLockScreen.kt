@@ -204,7 +204,7 @@ fun AppLockOverlayScreen(
                 color = Color.Gray
             )
             Text(
-                text = "رمز القفل والمزامنة المعتمد: 8090",
+                text = "رمز القفل المعتمد لحماية وتشفير بياناتك",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold

@@ -6,10 +6,12 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -71,9 +73,7 @@ fun BackupRestoreScreen(viewModel: MainViewModel) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isAdmin) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-            ),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
         ) {
             Row(
@@ -85,7 +85,7 @@ fun BackupRestoreScreen(viewModel: MainViewModel) {
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = if (isAdmin) Icons.Default.AdminPanelSettings else Icons.Default.AccountCircle,
+                        imageVector = Icons.Default.AccountCircle,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(36.dp)
@@ -93,11 +93,11 @@ fun BackupRestoreScreen(viewModel: MainViewModel) {
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = if (isAdmin) "المسؤول: $currentUsername 🛡️" else "المستخدم: $currentUsername 👤",
+                            text = "الحساب الحالي: $currentUsername 👤",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            text = if (isAdmin) "صلاحيات الأدمن الكاملة والتحكم" else "حساب عميل - مزامنة البيانات السحابية",
+                            text = "إدارة النسخ الاحتياطي والمزامنة السحابية",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Gray
                         )
@@ -378,29 +378,76 @@ fun BackupRestoreScreen(viewModel: MainViewModel) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Auto Sync Active Banner
+                    // Database Connection Status Badge Lights (Green, Yellow, Red)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "التزامن التلقائي المباشر مفعّل 🟢",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                )
-                                Text(
-                                    text = "يتم حفظ كافة تعديلاتك فوريًا محليًا على الجهاز وفي Firebase سحابيًا. في حالة عدم وجود إنترنت تحفظ التعديلات محليًا، وفور عودة النت تُرفع التحديثات تلقائيًا.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.DarkGray
-                                )
+                            Text(
+                                text = "مؤشر حالة الاتصال بقاعدة البيانات",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Green Status Badge (Connected)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF10B981))
+                                            .border(2.dp, Color.White, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("متصل 🟢", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF065F46))
+                                }
+
+                                // Yellow Status Badge (Syncing Offline Data)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFF59E0B))
+                                            .border(2.dp, Color.White, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Sync, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("مزامنة أوفلاين 🟡", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF92400E))
+                                }
+
+                                // Red Status Badge (Disconnected)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFEF4444))
+                                            .border(2.dp, Color.White, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.WifiOff, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("غير متصل 🔴", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF991B1B))
+                                }
                             }
                         }
                     }
@@ -469,99 +516,75 @@ fun BackupRestoreScreen(viewModel: MainViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // IF REGULAR USER -> SHOW HINT THAT FULL BACKUP / EXPORT TOOLS ARE IN ADMIN MODE
-            if (!isAdmin) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            // --- LOCAL EXPORT CARD ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "أدوات تصدير JSON الكاملة والتحكم الإداري متاحة فقط لحساب الإدارة (km512). يمكنك الاستفادة من زر المزامنة أعلاه لحفظ واسترجاع كافة معلوماتك.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
+                        Text("تصدير ملف JSON الشامل للنسخ الاحتياطي", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "نسخ كود JSON كاملاً لقواعد البيانات للنسخ الاحتياطي الخارجي.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                jsonOutput = viewModel.backupManager.exportToJson()
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("LifeOrganizerBackup", jsonOutput)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "تم تصدير البيانات ونسخها للحافظة! 📋", Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("تصدير ونسخ نص JSON")
+                    }
+
+                    if (jsonOutput.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = jsonOutput,
+                            onValueChange = {},
+                            readOnly = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(100.dp),
+                            label = { Text("معاينة نص النسخة الاحتياطية") }
                         )
                     }
                 }
             }
 
-            // IF ADMIN -> SHOW FULL EXPORT / IMPORT / CLEAR TOOLS
-            if (isAdmin) {
-                // --- LOCAL EXPORT CARD ---
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("تصدير ملف JSON الشامل (للأدمن)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "نسخ كود JSON كاملاً لقواعد البيانات للنسخ الاحتياطي الخارجي.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    jsonOutput = viewModel.backupManager.exportToJson()
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("LifeOrganizerBackup", jsonOutput)
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, "تم تصدير البيانات ونسخها للحافظة! 📋", Toast.LENGTH_LONG).show()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("تصدير ونسخ نص JSON")
-                        }
-
-                        if (jsonOutput.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = jsonOutput,
-                                onValueChange = {},
-                                readOnly = true,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(100.dp),
-                                label = { Text("معاينة نص النسخة الاحتياطية") }
-                            )
-                        }
+            // --- LOCAL IMPORT CARD ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Restore, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("استعادة ملف JSON محلي يدوياً", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                     }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // --- LOCAL IMPORT CARD ---
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Restore, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("استعادة ملف JSON محلي (للأدمن)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "الصق نص النسخة الاحتياطية لاستعادة كافة السجلات يدوياً.",
@@ -675,7 +698,6 @@ fun BackupRestoreScreen(viewModel: MainViewModel) {
                         }
                     )
                 }
-            }
         }
     }
 }

@@ -208,7 +208,7 @@ fun AuthScreen(viewModel: MainViewModel, onLoginSuccess: () -> Unit) {
                             value = loginUsername,
                             onValueChange = { loginUsername = it },
                             label = { Text("اسم المستخدم") },
-                            placeholder = { Text("أدخل اسم المستخدم أو الأدمن km512") },
+                            placeholder = { Text("أدخل اسم المستخدم") },
                             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -447,7 +447,7 @@ fun AuthScreen(viewModel: MainViewModel, onLoginSuccess: () -> Unit) {
                                     showForgotPasswordDialog = false
                                     Toast.makeText(
                                         context,
-                                        "تم تسجيل طلب الاسترداد بنجاح! يرجى مراجعة إدارة التطبيق (km512) لإعادة تعيين بياناتك.",
+                                        "تم تسجيل طلب الاسترداد بنجاح! يرجى مراجعة إدارة التطبيق لإعادة تعيين بياناتك.",
                                         Toast.LENGTH_LONG
                                     ).show()
                                 },
